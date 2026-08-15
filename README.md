@@ -16,7 +16,8 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 ## Team Info |Classroom Number: R3004
 - **Full Name:** Lewi Kibru(leader)
 - **CTC Number:** CTC-6064-26
-
+- **Full Name:** Lombame Lemma
+- **CTC Number:** CTC-888-26
 *(add your info here)*
  
 ---
