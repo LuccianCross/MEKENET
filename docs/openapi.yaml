@@ -1,0 +1,104 @@
+openapi: 3.0.3
+info:
+  title: Mekenet API
+  description: API specifications for Mekenet cloud sync and export features (Scheduled for Day 6).
+  version: 1.0.0
+servers:
+  - url: https://api.mekenet.com/v1
+    description: Production server
+
+paths:
+  /transactions/sync:
+    post:
+      summary: Sync offline transactions to the cloud
+      description: Uploads a batch of transactions created locally on the device to the cloud backend.
+      operationId: syncTransactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Transaction'
+      responses:
+        '200':
+          description: Successfully synced transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  syncedCount:
+                    type: integer
+        '400':
+          description: Invalid payload
+
+  /export/bank-report:
+    post:
+      summary: Request a bank-ready financial report
+      description: Generates a verified transaction history report to be used for loan applications.
+      operationId: generateBankReport
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadUrl:
+                    type: string
+                    format: uri
+        '403':
+          description: Unauthorized to generate report
+
+components:
+  schemas:
+    Transaction:
+      type: object
+      required:
+        - id
+        - type
+        - amount
+        - currency
+        - timestamp
+        - source
+      properties:
+        id:
+          type: string
+          description: Local database ID or UUID
+        type:
+          type: string
+          enum: [income, expense]
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          default: ETB
+        timestamp:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [telebirr, cash, manualDebt, other]
+        counterparty:
+          type: string
+          nullable: true
+          description: Name or phone number of the sender/receiver
+        referenceId:
+          type: string
+          nullable: true
+          description: Telebirr transaction ID
+        rawSms:
+          type: string
+          nullable: true
+          description: The raw SMS string used to generate this transaction
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags for the machine learning categorizer
