@@ -9,22 +9,28 @@ void main() {
       expect(result, isNull);
     });
 
-    test('parses income SMS skeleton', () {
-      final sms = "You have received 100 ETB from John Doe...";
+    test('parses income SMS correctly', () {
+      final sms = "Dear Customer, You have received 5,000.00 ETB from John Doe, 0911223344. Your current balance is 15,000.00 ETB. Transaction ID: ABC123XYZ";
       final result = TelebirrParser.parseSms(sms);
       
       expect(result, isNotNull);
       expect(result!.type, TransactionType.income);
       expect(result.source, TransactionSource.telebirr);
+      expect(result.amount, 5000.00);
+      expect(result.counterparty, "John Doe");
+      expect(result.referenceId, "ABC123XYZ");
     });
 
-    test('parses expense SMS skeleton', () {
-      final sms = "You have paid 50 ETB to Some Store...";
+    test('parses expense SMS correctly', () {
+      final sms = "Dear Customer, You have transferred 300.50 ETB to Abebe Kebede. Your current balance is 1,200.00 ETB. Transaction ID: XYZ987CBA";
       final result = TelebirrParser.parseSms(sms);
       
       expect(result, isNotNull);
       expect(result!.type, TransactionType.expense);
       expect(result.source, TransactionSource.telebirr);
+      expect(result.amount, 300.50);
+      expect(result.counterparty, "Abebe Kebede");
+      expect(result.referenceId, "XYZ987CBA");
     });
   });
 }
