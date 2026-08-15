@@ -18,7 +18,7 @@ This document breaks the MVP into phases by layer — database, backend, fronten
 
 ---
 
-## Phase 2: Backend (You, staged for days 7–8)
+## Phase 2: Backend (staged for days 7–8)
 
 1. **Set up the Supabase project.** Create tables that mirror the structured (non-raw) transaction fields from the local schema.
 2. **Keep auth minimal.** For a pilot, a simple per-device identifier is enough — don't build a full user account system for an 8-day MVP.
