@@ -21,7 +21,7 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 *(add your info here)*
  
 ---
- 
+ *(read the TEAM_RULES.md for the PR process and workflow)*
 ## Team & Ownership (project tracking)
  
 | Area | Owner | GitHub label |
