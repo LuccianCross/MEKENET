@@ -22,6 +22,8 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 - **CTC Number:** CTC-1586-26
 - **Full Name:** Mekdes Tesfaye
 - **CTC Number:** CTC-1711-26
+- **Full Name:** Kenawak Berhanu
+- **CTC Number:** CTC-6591-26
 *(add your info here)*
  
 ---
