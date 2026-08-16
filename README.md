@@ -27,6 +27,49 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 *(add your info here)*
  
 ---
+
+## Tech Stack
+- **App:** Flutter (Dart), Android only for the pilot
+- **Backend:** Python + FastAPI, our own custom API (not a managed backend-as-a-service)
+- **Database:** Postgres (backend), encrypted SQLite (on-device)
+## How to Start Working (read this before your first PR)
+1. Read your assigned GitHub Issue.
+2. Check the **Project Structure** section below to find exactly which folder your work belongs in.
+3. Clone the repo, run the relevant setup from "How to Run This Project."
+4. Do the work on a new branch (see `GITHUB_GUIDE.md` if you're unsure how).
+5. Open a PR, linked to your issue.
+## Project Structure
+```
+mekenet/
+  app/                          ← the Flutter mobile app
+    lib/
+      models/                   → shared data shapes (Transaction, Debt, Item, PriceMatchRule).
+                                   Touching this affects everyone — say so in the daily check-in first.
+      repositories/              → the "save/read" functions the UI uses instead of talking to
+                                   the database directly. (owner: storage/sync dev)
+      services/
+        parser/                 → turns raw SMS text into a transaction. The most important,
+                                   most heavily tested folder in the whole project.
+        matcher/                → the price-to-item learning logic. (owner: core engine dev)
+      screens/                  → each app screen a user actually sees (home, quick-tap picker,
+                                   debts, onboarding). (owner: frontend dev)
+      widgets/                  → small reusable UI pieces used across screens. (owner: frontend dev)
+      api_client/                → the thin code that calls our backend — no logic, just requests.
+      utils/                     → small shared helpers (encryption, formatting).
+    test/                       → automated tests for the app
+    test_assets/                → real, anonymized sample SMS messages used for testing the parser
+ 
+  server/                       ← the Python + FastAPI backend
+    routes/                     → the actual API endpoints (`/sync`, `/export`).
+    models/                     → data shapes mirroring the app's Transaction shape.
+    db/                         → the Postgres connection and queries.
+    tests/                      → backend tests
+    (owner: you + backend teammate)
+ 
+  README.md, PRD.md, SDD.md, IMPLEMENTATION_PLAN.md   ← project documentation, read before building
+```
+**Rule of thumb:** if your issue is labeled `parser` or `mobile`, your work almost certainly lives inside `app/`. If it's labeled `backend`, it's in `server/`. If you're ever unsure which folder something belongs in, ask in the check-in before guessing — it's a 30-second question that prevents a messy PR later.
+
  *(read the TEAM_RULES.md for the PR process and workflow)*
 ## Team & Ownership (project tracking)
  
@@ -39,6 +82,21 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 | Review, Fix, Product, design & go-to-market | lead | `product` / `gtm` |
  
 Every issue gets exactly one of these five labels, so it's always clear whose queue it's in.
+
+## How to Run This Project
+**The Flutter app:**
+```
+cd app
+flutter pub get
+flutter run
+```
+**The backend:**
+```
+cd server
+source venv/bin/activate
+uvicorn main:app --reload
+```
+Then open `http://127.0.0.1:8000/docs` in a browser to see and test every backend endpoint live — this page is generated automatically by FastAPI from the code, nothing extra to maintain.
  
 ## How We Track Work(examples)
 - **Milestones:** `Week 1 — build the MVP`.
