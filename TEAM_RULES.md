@@ -8,6 +8,8 @@ Short, on purpose. If you only read one document before starting, read this one.
 3. **Every GitHub Issue has exactly one owner and one label** (`mobile`, `parser`, `storage`, `backend`, `product`/`gtm`). If it doesn't fit a label, ask before starting it.
 4. **If it's not in the PRD's "in scope" list, it doesn't get built this week.** New ideas go into an issue tagged `icebox`, not into the current sprint. Say it in the check-in, don't just start building it.
 5. **Show up to the daily check-in.** Two minutes each: what you finished, what's blocking you. If you're blocked, say it loudly — a blocker you mention on day 2 costs an hour; the same blocker discovered on day 6 costs the whole sprint.
+6. **If you're touching `models/`, say so in the check-in before you do.** This is the one folder everyone else's code depends on, and an unannounced change here is the fastest way to break someone else's branch without meaning to.
+7. **Follow the folder structure**. This is the architecture from sections 8 in the SDD, made physical — so anyone opening a branch knows exactly where their work belongs.
 
 ## Branch & commit conventions
 - Branch names: `feature/[label]-short-description`, e.g. `feature/parser-telebirr-income`.
