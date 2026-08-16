@@ -96,3 +96,33 @@ pin_hash: string
 - Exact telebirr SMS format samples to build the parser's initial pattern set against (owned by: core engine dev, sourced by: lead's pilot outreach).
 - Starter item list for the single pilot vertical (kiosk/food) — 10–15 items, owned by: lead + frontend dev.
 - Confidence threshold at which a `PriceMatchRule` is trusted enough to auto-save without any confirm tap.
+
+
+## 8. Folder Structure
+This is the architecture from sections 1–2, made physical — so anyone opening a branch knows exactly where their work belongs.
+ 
+```
+lib/
+  models/          → Transaction, Debt, Item, PriceMatchRule, ParsedTransaction
+                     (shared by everyone — changes here need team agreement first)
+  repositories/    → TransactionRepository, DebtRepository — interfaces + real
+                     SQLite implementation + a mock version for early frontend work
+                     (owner: storage/sync dev)
+  services/
+    parser/        → the pure SMS-parsing function, isolated and heavily tested
+    matcher/       → price-match lookup + confidence-score learning logic
+                     (owner: core engine dev)
+    report/        → the report-generation logic (owner: backend teammate)
+  screens/         → each app screen — home, quick-tap picker, debts, onboarding
+  widgets/         → small reusable pieces (quick-tap chip, PIN pad, etc.)
+                     (owner: frontend dev)
+  backend/         → Supabase client + sync logic (owner: you)
+  utils/           → encryption helpers, formatting helpers (shared)
+test/
+  unit/            → fast tests, mainly parser, matcher, and repository logic
+  widget/          → screen-level tests
+integration_test/  → full-flow tests (SMS in → transaction saved → profit shown)
+test_assets/       → the real, anonymized SMS sample corpus
+```
+ 
+**The one rule that matters most:** if you're touching `models/`, say so in the daily check-in before you do — it's the one folder everyone else's code depends on, and an unannounced change here is the fastest way to break someone else's branch without meaning to.
