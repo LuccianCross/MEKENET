@@ -40,7 +40,7 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
  
 Every issue gets exactly one of these five labels, so it's always clear whose queue it's in.
  
-## How We Track Work
+## How We Track Work(examples)
 - **Milestones:** `Week 1 — build the MVP`.
 - **Issue naming:** `[label] short description` — e.g. `[parser] handle telebirr "received" SMS format`.
 - **Every issue needs:** one owner, one milestone, and a done-condition in the description (what "closed" actually means).
