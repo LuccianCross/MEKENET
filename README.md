@@ -33,11 +33,25 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 - **Backend:** Python + FastAPI, our own custom API (not a managed backend-as-a-service)
 - **Database:** Postgres (backend), encrypted SQLite (on-device)
 ## How to Start Working (read this before your first PR)
+**Before starting any issue:** open a terminal, go into the project folder, and run:
+```
+git checkout main
+git pull origin main
+git checkout -b [branch name from your issue]
+```
+This gets you the latest shared code and puts you on your own safe branch to work in.
 1. Read your assigned GitHub Issue.
 2. Check the **Project Structure** section below to find exactly which folder your work belongs in.
 3. Clone the repo, run the relevant setup from "How to Run This Project."
 4. Do the work on a new branch (see `GITHUB_GUIDE.md` if you're unsure how).
-5. Open a PR, linked to your issue.
+## After finishing any issue
+```
+git add .
+git commit -m "short description of what you did"
+git push origin [your branch name]
+```
+5. Then open a Pull Request on GitHub, write `Closes #[issue number]` in the description, and ask a teammate to review it. See `GITHUB_GUIDE.md` if any of this is unfamiliar.
+
 ## Project Structure
 ```
 mekenet/
