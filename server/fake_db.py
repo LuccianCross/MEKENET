@@ -11,7 +11,7 @@ Nothing else in the codebase needs to change except these two files:
     - server/routes/export.py →  replaces list reads   with SELECT
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # ---------------------------------------------------------------------------
 # The single source-of-truth while Postgres is not wired up.
@@ -19,11 +19,21 @@ from typing import List, Dict, Any
 # what we need to test the sync → export pipeline end-to-end.
 # ---------------------------------------------------------------------------
 _transactions: List[Dict[str, Any]] = []
+_seen_ids: set = set()
 
 
-def insert_transaction(tx: Dict[str, Any]) -> None:
-    """Append one validated transaction to the fake store."""
+def insert_transaction(tx: Dict[str, Any]) -> Optional[str]:
+    """
+    Insert a transaction. Returns None on success.
+    Returns "duplicate" if a transaction with the same id already exists.
+    """
+    tx_id = tx.get("id")
+    if tx_id and tx_id in _seen_ids:
+        return "duplicate"
     _transactions.append(tx)
+    if tx_id:
+        _seen_ids.add(tx_id)
+    return None
 
 
 def get_all_transactions() -> List[Dict[str, Any]]:
@@ -34,3 +44,4 @@ def get_all_transactions() -> List[Dict[str, Any]]:
 def clear_all() -> None:
     """Wipe the store — used by tests only, never call from a route."""
     _transactions.clear()
+    _seen_ids.clear()
