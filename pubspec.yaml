@@ -1,0 +1,30 @@
+name: mekenet
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  another_telephony: ^0.4.1
+  sqflite: ^2.4.3
+  sqflite_sqlcipher: ^3.4.1
+  flutter_secure_storage: ^9.0.0
+  http: ^1.2.0
+  uuid: ^4.2.1
+  path: ^1.9.0
+  path_provider: ^2.1.0
+  logger: ^2.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
