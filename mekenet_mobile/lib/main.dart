@@ -4,7 +4,6 @@ import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/bottom_nav_bar.dart';
-import 'repositories/mock_transaction_repository.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,18 +46,16 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final mockRepo = MockTransactionRepository();
-
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    _screens = [
-      HomeScreen(repository: mockRepo),
-      const QuickAddScreen(),
-      DebtsScreen(repository: mockRepo),
-      const SettingsScreen(),
+    _screens = const [
+      HomeScreen(),
+      QuickAddScreen(),
+      DebtsScreen(),
+      SettingsScreen(),
     ];
   }
 

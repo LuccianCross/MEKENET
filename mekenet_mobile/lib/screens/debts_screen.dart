@@ -1,45 +1,7 @@
 import 'package:flutter/material.dart';
-import '../repositories/transaction_repository.dart';
-import '../models/transaction.dart';
 
-class DebtsScreen extends StatefulWidget {
-  final TransactionRepository? repository;
-
-  const DebtsScreen({super.key, this.repository});
-
-  @override
-  State<DebtsScreen> createState() => _DebtsScreenState();
-}
-
-class _DebtsScreenState extends State<DebtsScreen> {
-  List<Transaction> _debts = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDebts();
-  }
-
-  Future<void> _loadDebts() async {
-    if (widget.repository == null) {
-      setState(() {
-        _loading = false;
-      });
-      return;
-    }
-
-    setState(() => _loading = true);
-    final debts = await widget.repository!.getDebts();
-    setState(() {
-      _debts = debts;
-      _loading = false;
-    });
-  }
-
-  double get _totalOwed {
-    return _debts.fold(0.0, (sum, t) => sum + t.amount);
-  }
+class DebtsScreen extends StatelessWidget {
+  const DebtsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -57,69 +19,69 @@ class _DebtsScreenState extends State<DebtsScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.08),
-                        spreadRadius: 1,
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Total Outstanding Owed',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        'Br${_totalOwed.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0A8E48),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _debts.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No debts recorded',
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _debts.length,
-                          itemBuilder: (context, index) {
-                            final d = _debts[index];
-                            final isPaid = index % 2 == 0;
-                            return _buildDebtorTile(d, isPaid, index);
-                          },
-                        ),
+      body: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withValues(alpha: 0.08),
+                  spreadRadius: 1,
+                  blurRadius: 6,
                 ),
               ],
             ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total Outstanding Owed',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Text(
+                  'Br800',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0A8E48),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: 3,
+              itemBuilder: (context, index) {
+                final debtors = [
+                  {'name': 'Abebe', 'amount': 300, 'due': '2 days', 'paid': false},
+                  {'name': 'Sara', 'amount': 200, 'due': '5 days', 'paid': true},
+                  {'name': 'Dawit', 'amount': 300, 'due': '3 days', 'paid': false},
+                ];
+                final d = debtors[index];
+                return _buildDebtorTile(
+                  d['name'] as String,
+                  d['amount'] as int,
+                  d['due'] as String,
+                  d['paid'] as bool,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildDebtorTile(Transaction d, bool isPaid, int index) {
+  Widget _buildDebtorTile(String name, int amount, String due, bool isPaid) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -154,14 +116,14 @@ class _DebtsScreenState extends State<DebtsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  d.sender ?? 'Unknown',
+                  name,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
                 ),
                 Text(
-                  isPaid ? 'Paid' : 'Due in ${index + 2} days',
+                  isPaid ? 'Paid' : 'Due in $due',
                   style: TextStyle(
                     fontSize: 12,
                     color: isPaid ? const Color(0xFF0A8E48) : Colors.grey[500],
@@ -174,7 +136,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'Br${d.amount.toStringAsFixed(0)}',
+                'Br$amount',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,

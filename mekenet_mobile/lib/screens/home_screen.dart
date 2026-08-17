@@ -1,53 +1,7 @@
 import 'package:flutter/material.dart';
-import '../repositories/transaction_repository.dart';
-import '../models/transaction.dart';
 
-class HomeScreen extends StatefulWidget {
-  final TransactionRepository repository;
-
-  const HomeScreen({super.key, required this.repository});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  List<Transaction> _transactions = [];
-  double _weeklyIncome = 0;
-  double _weeklyExpenses = 0;
-  double _totalOwed = 0;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-
-    final transactions = await widget.repository.getTransactions();
-    final now = DateTime.now();
-    final weekAgo = now.subtract(const Duration(days: 7));
-
-    final income = await widget.repository.getTotalIncome(weekAgo, now);
-
-    double expenses = 0;
-    double debts = 0;
-    for (var t in transactions) {
-      if (t.type == 'expense') expenses += t.amount;
-      if (t.type == 'debt') debts += t.amount;
-    }
-
-    setState(() {
-      _transactions = transactions;
-      _weeklyIncome = income;
-      _weeklyExpenses = expenses;
-      _totalOwed = debts;
-      _loading = false;
-    });
-  }
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -65,105 +19,79 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _buildSummaryCard(
-                          'INCOME',
-                          'Br${_weeklyIncome.toStringAsFixed(0)}',
-                          const Color(0xFF0A8E48),
-                          Icons.arrow_upward,
-                        ),
-                        const SizedBox(width: 10),
-                        _buildSummaryCard(
-                          'EXPENSES',
-                          'Br${_weeklyExpenses.toStringAsFixed(0)}',
-                          const Color(0xFFE53935),
-                          Icons.arrow_downward,
-                        ),
-                        const SizedBox(width: 10),
-                        _buildSummaryCard(
-                          'OWED TO YOU',
-                          'Br${_totalOwed.toStringAsFixed(0)}',
-                          const Color(0xFFFF8F00),
-                          Icons.people,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.08),
-                            spreadRadius: 1,
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'You made Br${_weeklyIncome.toStringAsFixed(0)} this week',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0A8E48),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Great job! Your sales are up 12% compared to last week.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Recent Transactions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {},
-                          child: const Text('See All'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _transactions.length > 5 ? 5 : _transactions.length,
-                      itemBuilder: (context, index) {
-                        final t = _transactions[index];
-                        return _buildTransactionTile(t);
-                      },
-                    ),
-                  ],
-                ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _buildSummaryCard('INCOME', 'Br4,500', const Color(0xFF0A8E48), Icons.arrow_upward),
+                const SizedBox(width: 10),
+                _buildSummaryCard('EXPENSES', 'Br1,200', const Color(0xFFE53935), Icons.arrow_downward),
+                const SizedBox(width: 10),
+                _buildSummaryCard('OWED TO YOU', 'Br800', const Color(0xFFFF8F00), Icons.people),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.08),
+                    spreadRadius: 1,
+                    blurRadius: 6,
+                  ),
+                ],
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'You made Br4,500 this week',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0A8E48),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Great job! Your sales are up 12% compared to last week.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recent Transactions',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text('See All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildTransactionTile('Almaz Grocery', 'Today, 10:30 AM', 2500, true),
+            _buildTransactionTile('Supplier X', 'Yesterday', 1200, false),
+            _buildTransactionTile('Tadele Debt', '2 days ago', 500, true),
+          ],
+        ),
       ),
     );
   }
@@ -215,26 +143,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTransactionTile(Transaction t) {
-    final isIncome = t.type == 'income';
-    final isDebt = t.type == 'debt';
-    Color color;
-    IconData icon;
-    String label;
-
-    if (isIncome) {
-      color = const Color(0xFF0A8E48);
-      icon = Icons.arrow_upward;
-      label = 'Sale';
-    } else if (isDebt) {
-      color = const Color(0xFFFF8F00);
-      icon = Icons.people;
-      label = 'Debt';
-    } else {
-      color = const Color(0xFFE53935);
-      icon = Icons.arrow_downward;
-      label = 'Expense';
-    }
+  Widget _buildTransactionTile(String title, String date, double amount, bool isIncome) {
+    final color = isIncome ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
+    final icon = isIncome ? Icons.arrow_upward : Icons.arrow_downward;
+    final label = isIncome ? 'Sale' : 'Expense';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -263,14 +175,14 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  t.sender ?? 'Unknown',
+                  title,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
                 ),
                 Text(
-                  _formatDate(t.timestamp),
+                  date,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[500],
@@ -283,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isIncome ? '+' : '-'}Br${t.amount.toStringAsFixed(0)}',
+                '${isIncome ? '+' : '-'}Br${amount.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: color,
@@ -310,21 +222,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    if (date.day == now.day && date.month == now.month && date.year == now.year) {
-      return 'Today, ${date.hour}:${date.minute.toString().padLeft(2, '0')} ${date.hour >= 12 ? 'PM' : 'AM'}';
-    } else if (date.day == now.day - 1 && date.month == now.month && date.year == now.year) {
-      return 'Yesterday';
-    } else {
-      return '${date.day} ${_getMonth(date.month)} ${date.year}';
-    }
-  }
-
-  String _getMonth(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[month - 1];
   }
 }
