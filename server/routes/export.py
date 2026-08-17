@@ -1,7 +1,7 @@
 """
 routes/export.py
 ----------------
-POST /export
+GET /export
 
 Reads everything from the fake store and computes a human-readable
 financial report.
@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel
 
 import fake_db
@@ -94,7 +94,7 @@ def _build_category_breakdown(
 # Route
 # ---------------------------------------------------------------------------
 
-@router.post(
+@router.get(
     "/",
     response_model=ExportReport,
     status_code=status.HTTP_200_OK,
@@ -118,6 +118,7 @@ def export_report(
         alias="type",
         description="Filter: 'income' or 'expense'",
     ),
+    x_device_id: Optional[str] = Header(default=None, alias="X-Device-ID"),
 ) -> ExportReport:
     """
     Build a complete financial report from the fake (or real) store.
@@ -128,6 +129,12 @@ def export_report(
     4. Build per-category breakdowns.
     5. Return the structured report.
     """
+
+    if not x_device_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Device-ID header",
+        )
 
     all_txs = fake_db.get_all_transactions()
 

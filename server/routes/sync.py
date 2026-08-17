@@ -17,7 +17,7 @@ Swap guide (when Postgres env arrives):
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 import fake_db
@@ -35,8 +35,7 @@ class TransactionIn(BaseModel):
 
     Field notes
     -----------
-    id          – client-generated UUID/string; uniqueness check is the DB's
-                  job (skipped for now — fake store accepts duplicates).
+    id          – client-generated UUID/string; deduplicated on the server.
     type        – "income" or "expense" only.
     amount      – must be positive; stored as float to handle cents.
     description – free text, trimmed on arrival.
@@ -66,7 +65,6 @@ class TransactionIn(BaseModel):
     def default_date(cls, v: Optional[str]) -> str:
         if not v:
             return datetime.now(timezone.utc).date().isoformat()
-        # Basic sanity check — full ISO parsing
         try:
             datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
@@ -97,28 +95,38 @@ class SyncResponse(BaseModel):
     status_code=status.HTTP_201_CREATED,
     summary="Sync a transaction from the Flutter app",
     description=(
-        "Validates and stores a single transaction. "
+        "Validates and stores a single transaction, deduplicating by id. "
         "Backed by an in-memory list until Postgres is wired."
     ),
 )
-def sync_transaction(payload: TransactionIn) -> SyncResponse:
-    """
-    Validate the incoming transaction, persist it to the fake store,
-    and return confirmation.
+def sync_transaction(
+    payload: TransactionIn,
+    x_device_id: Optional[str] = Header(default=None, alias="X-Device-ID"),
+) -> SyncResponse:
+    if not x_device_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Device-ID header",
+        )
 
-    Future:  replace fake_db.insert_transaction() with a real DB write.
-    """
     tx_dict = payload.model_dump()
-
-    # Add a server-side timestamp for audit purposes
     tx_dict["synced_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     try:
-        fake_db.insert_transaction(tx_dict)
+        result = fake_db.insert_transaction(tx_dict)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Storage error: {exc}",
+        )
+
+    if result == "duplicate":
+        stored_count = len(fake_db.get_all_transactions())
+        return SyncResponse(
+            success=True,
+            message="Transaction already exists (deduplicated)",
+            transaction_id=payload.id,
+            stored_count=stored_count,
         )
 
     stored_count = len(fake_db.get_all_transactions())
