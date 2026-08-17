@@ -1,258 +1,135 @@
-// ignore_for_file: avoid_print
-
+// Import the Flutter Material Design library
+// This gives us access to Material Design widgets (Scaffold, AppBar, etc.)
 import 'package:flutter/material.dart';
-import 'repositories/repository_provider.dart';
-import 'models/transaction.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await testRepository();
+// The entry point of the application
+// This function is called when the app starts
+void main() {
+  // Run the app by calling runApp() with our root widget (MyApp)
   runApp(const MyApp());
 }
 
+// MyApp is a StatelessWidget - it doesn't change state
+// It's the root widget that builds the entire application
 class MyApp extends StatelessWidget {
+  // Constructor with a super key parameter
+  // The 'const' keyword allows for compile-time optimization
   const MyApp({super.key});
 
+  // The build method is required for all widgets
+  // It describes what the UI should look like
   @override
   Widget build(BuildContext context) {
+    // MaterialApp is the root widget for Material Design apps
+    // It provides navigation, theming, and other core features
     return MaterialApp(
-      title: 'Mekenet Test',
+      // The title appears in the task manager / window title
+      title: 'Flutter Demo',
+      
+      // ThemeData defines the visual theme of the app
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        // colorScheme creates a color palette from a seed color
+        // This enables dynamic color theming (Material 3 feature)
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        
+        // useMaterial3 enables the latest Material Design 3 features
+        useMaterial3: true,
       ),
-      home: const TestScreen(),
+      
+      // home is the default route / first screen shown
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class TestScreen extends StatefulWidget {
-  const TestScreen({super.key});
+// MyHomePage is a StatefulWidget - it can change state
+// Stateful widgets are used when the UI needs to update dynamically
+class MyHomePage extends StatefulWidget {
+  // Required parameter 'title' passed from the parent
+  const MyHomePage({super.key, required this.title});
 
+  // Final means this value cannot change after initialization
+  final String title;
+
+  // createState() is called when Flutter needs to create the State object
+  // This is where we link the widget to its state
   @override
-  State<TestScreen> createState() => _TestScreenState();
+  State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _TestScreenState extends State<TestScreen> {
-  String _testResult = 'Testing...';
-  final List<String> _logs = [];
+// The State class holds the mutable state for MyHomePage
+// The underscore (_) makes it private to this file
+class _MyHomePageState extends State<MyHomePage> {
+  // _counter is a private variable that holds the count
+  // It starts at 0
+  int _counter = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _runTests();
-  }
-
-  Future<void> _runTests() async {
-    try {
-      _addLog('Starting repository tests...');
-      
-      final repo = RepositoryProvider.instance;
-      _addLog('Repository instance created');
-      
-      _addLog('Test 1: Saving a transaction...');
-      final transaction = Transaction(
-        direction: 'income',
-        amount: 100.0,
-        source: 'sms',
-        counterpartyMasked: '1234',
-        rawSmsHash: 'test_hash_123',
-        category: 'stock',
-      );
-      
-      await repo.save(transaction);
-      _addLog('Transaction saved with ID: ${transaction.id}');
-      
-      _addLog('Test 2: Getting transaction by ID...');
-      final found = await repo.getById(transaction.id);
-      if (found != null) {
-        _addLog('Found transaction: ${found.amount} Birr (${found.direction})');
-      } else {
-        _addLog('Transaction not found!');
-      }
-      
-      _addLog('Test 3: Getting today\'s transactions...');
-      final today = await repo.getToday();
-      _addLog('Today\'s transactions: ${today.length}');
-      
-      _addLog('Test 4: Getting transactions by date range...');
-      final start = DateTime.now().subtract(const Duration(days: 7));
-      final end = DateTime.now();
-      final weekTransactions = await repo.getByDateRange(start, end);
-      _addLog('Transactions in last 7 days: ${weekTransactions.length}');
-      
-      _addLog('Test 5: Calculating total income...');
-      final income = await repo.getTotalIncome(start, end);
-      _addLog('Total income: $income Birr');
-      
-      _addLog('Test 6: Checking for duplicate...');
-      final exists = await repo.existsBySmsHash('test_hash_123');
-      _addLog('Duplicate exists: $exists');
-      
-      _addLog('Test 7: Updating transaction...');
-      final updated = Transaction(
-        id: transaction.id,
-        direction: 'expense',
-        amount: 75.0,
-        source: 'manual',
-        counterpartyMasked: '5678',
-        matchConfidence: 'confirmed',
-        category: 'rent',
-        timestamp: transaction.timestamp,
-        synced: false,
-      );
-      await repo.update(updated);
-      
-      final verified = await repo.getById(transaction.id);
-      if (verified != null && verified.amount == 75.0) {
-        _addLog('Transaction updated successfully! New amount: ${verified.amount} Birr');
-      } else {
-        _addLog('Update failed!');
-      }
-      
-      _addLog('Test 8: Getting unmatched transactions...');
-      final unmatched = await repo.getUnmatched();
-      _addLog('Unmatched transactions: ${unmatched.length}');
-      
-      _addLog('Test 9: Deleting transaction...');
-      await repo.delete(transaction.id);
-      final deleted = await repo.getById(transaction.id);
-      if (deleted == null) {
-        _addLog('Transaction deleted successfully!');
-      } else {
-        _addLog('Delete failed!');
-      }
-      
-      _addLog('All tests completed successfully!');
-      
-      setState(() {
-        _testResult = 'All tests passed!';
-      });
-      
-    } catch (e) {
-      _addLog('Test failed with error: $e');
-      setState(() {
-        _testResult = 'Tests failed: $e';
-      });
-    }
-  }
-
-  void _addLog(String message) {
-    print(message);
+  // _incrementCounter is a method that increases _counter
+  // It uses setState() to tell Flutter that the UI needs to rebuild
+  void _incrementCounter() {
+    // setState() schedules a rebuild of the widget
+    // All changes to state variables must happen inside setState()
     setState(() {
-      _logs.add(message);
+      // Increment the counter by 1
+      _counter++;
     });
   }
 
+  // The build method is called:
+  // 1. When the widget is first created
+  // 2. When setState() is called (state changes)
+  // 3. When parent widget rebuilds
   @override
   Widget build(BuildContext context) {
+    // Scaffold is a Material Design layout structure
+    // It provides app bars, body, floating action buttons, drawers, etc.
     return Scaffold(
+      // AppBar is the top navigation bar
       appBar: AppBar(
-        title: const Text('Repository Test'),
-        backgroundColor: Colors.green,
+        // backgroundColor uses the inverse primary color from the theme
+        // This creates a nice contrast effect
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        
+        // title displays the text passed from the parent widget
+        // widget.title accesses the title from MyHomePage
+        title: Text(widget.title),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      
+      // body is the main content of the screen
+      body: Center(
+        // Center widget centers its child both horizontally and vertically
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _testResult.contains('All tests passed') ? Colors.green[100] : Colors.red[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _testResult,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _testResult.contains('All tests passed') ? Colors.green[800] : Colors.red[800],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+          // Column arranges children vertically (top to bottom)
+          // mainAxisAlignment controls how children are arranged along the main axis (vertical)
+          mainAxisAlignment: MainAxisAlignment.center,
+          
+          // children is a list of widgets to display vertically
+          children: <Widget>[
+            // First child: A text label
             const Text(
-              'Test Logs:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              'You have pushed the button this many times:',
             ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _logs.map((log) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(
-                          log,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: log.contains('failed') ? Colors.red : 
-                                   log.contains('successfully') ? Colors.green : 
-                                   Colors.black,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
+            
+            // Second child: The counter value displayed as a string
+            Text(
+              '$_counter', // Convert integer to string using string interpolation
+              style: Theme.of(context).textTheme.headlineMedium, // Large bold text style
             ),
           ],
         ),
       ),
+      
+      // floatingActionButton is a circular button that floats above the content
+      floatingActionButton: FloatingActionButton(
+        // onPressed is a callback function when the button is tapped
+        onPressed: _incrementCounter, // Call our increment method
+        
+        // tooltip appears when the user long-presses the button (accessibility)
+        tooltip: 'Increment',
+        
+        // child is the icon displayed inside the button
+        child: const Icon(Icons.add), // Plus icon from Material Icons
+      ),
     );
-  }
-}
-
-Future<void> testRepository() async {
-  print('\n========================================');
-  print('Running Repository Tests (Console)');
-  print('========================================\n');
-  
-  try {
-    final repo = RepositoryProvider.instance;
-    print('Repository instance created');
-    
-    final transaction = Transaction(
-      direction: 'income',
-      amount: 100.0,
-      source: 'sms',
-      counterpartyMasked: '1234',
-      rawSmsHash: 'test_hash_123',
-    );
-    await repo.save(transaction);
-    print('Saved: ${transaction.id}');
-    
-    final found = await repo.getById(transaction.id);
-    if (found != null) {
-      print('Found: ${found.amount} Birr (${found.direction})');
-    }
-    
-    final today = await repo.getToday();
-    print('Today: ${today.length} transactions');
-    
-    final start = DateTime.now().subtract(const Duration(days: 7));
-    final end = DateTime.now();
-    final income = await repo.getTotalIncome(start, end);
-    print('Income (7 days): $income Birr');
-    
-    await repo.delete(transaction.id);
-    final deleted = await repo.getById(transaction.id);
-    if (deleted == null) {
-      print('Deleted successfully');
-    }
-    
-    print('\nALL TESTS PASSED!');
-    print('========================================\n');
-  } catch (e) {
-    print('\nTest failed: $e');
-    print('========================================\n');
   }
 }
