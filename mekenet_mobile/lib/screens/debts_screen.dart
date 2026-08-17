@@ -6,9 +6,15 @@ class DebtsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Who Owes Me'),
+        title: const Text(
+          'Who Owes Me',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+          ),
+        ),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -21,19 +27,17 @@ class DebtsScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
+          // Total Owed Card
           Container(
             margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.08),
-                  spreadRadius: 1,
-                  blurRadius: 6,
-                ),
-              ],
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0A8E48), Color(0xFF1B6B3A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -41,21 +45,23 @@ class DebtsScreen extends StatelessWidget {
                 const Text(
                   'Total Outstanding Owed',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
+                    color: Colors.white,
                   ),
                 ),
                 const Text(
                   'Br800',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0A8E48),
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
           ),
+          // Debtor List
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -82,35 +88,37 @@ class DebtsScreen extends StatelessWidget {
   }
 
   Widget _buildDebtorTile(String name, int amount, String due, bool isPaid) {
+    final color = isPaid ? const Color(0xFF0A8E48) : const Color(0xFFFF8F00);
+    final icon = isPaid ? Icons.check : Icons.person;
+    final statusText = isPaid ? 'Paid' : 'Unpaid';
+    final statusColor = isPaid ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: isPaid
             ? Border.all(color: const Color(0xFF0A8E48), width: 1.5)
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.05),
+            color: Colors.grey.withValues(alpha: 0.04),
             spreadRadius: 1,
-            blurRadius: 4,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isPaid
-                ? const Color(0xFF0A8E48).withValues(alpha: 0.1)
-                : const Color(0xFFFF8F00).withValues(alpha: 0.1),
-            child: Icon(
-              isPaid ? Icons.check : Icons.person,
-              color: isPaid ? const Color(0xFF0A8E48) : const Color(0xFFFF8F00),
-            ),
+            backgroundColor: color.withValues(alpha: 0.12),
+            radius: 22,
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,9 +127,10 @@ class DebtsScreen extends StatelessWidget {
                   name,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 15,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   isPaid ? 'Paid' : 'Due in $due',
                   style: TextStyle(
@@ -140,22 +149,21 @@ class DebtsScreen extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: isPaid ? const Color(0xFF0A8E48) : const Color(0xFFFF8F00),
+                  color: color,
                 ),
               ),
+              const SizedBox(height: 2),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isPaid
-                      ? const Color(0xFF0A8E48).withValues(alpha: 0.1)
-                      : const Color(0xFFE53935).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  isPaid ? 'Paid' : 'Unpaid',
+                  statusText,
                   style: TextStyle(
                     fontSize: 10,
-                    color: isPaid ? const Color(0xFF0A8E48) : const Color(0xFFE53935),
+                    color: statusColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

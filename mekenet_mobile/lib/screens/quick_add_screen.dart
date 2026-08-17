@@ -25,9 +25,15 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Add Expense'),
+        title: const Text(
+          'Add Expense',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+          ),
+        ),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -37,6 +43,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Amount
             const Text(
               'Amount (Br)',
               style: TextStyle(
@@ -48,14 +55,20 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Enter expense amount',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.money),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.money),
               ),
             ),
             const SizedBox(height: 20),
 
+            // Category
             const Text(
               'Category',
               style: TextStyle(
@@ -66,6 +79,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: _categories.map((category) {
                 final isSelected = _selectedCategory == category;
                 return ChoiceChip(
@@ -79,12 +93,17 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                   selectedColor: const Color(0xFF0A8E48),
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : Colors.black,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 20),
 
+            // Date
             const Text(
               'Date',
               style: TextStyle(
@@ -96,11 +115,13 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             ListTile(
               tileColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(12),
               ),
               title: Text(
                 '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               trailing: const Icon(Icons.calendar_today),
               onTap: () async {
@@ -119,6 +140,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             ),
             const SizedBox(height: 20),
 
+            // Note
             const Text(
               'Note (Optional)',
               style: TextStyle(
@@ -129,16 +151,22 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'e.g. Weekly stock refill',
-                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
             const SizedBox(height: 24),
 
+            // Save Button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 54,
               child: ElevatedButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -153,12 +181,16 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                   backgroundColor: const Color(0xFF0A8E48),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
                   'Save Expense',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
