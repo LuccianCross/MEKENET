@@ -1,6 +1,6 @@
 # What the parser needs to pull out of a telebirr SMS
 
-Draft for team review — edit freely once we see the real message samples in app/test_assets/telebirr_sms_samples.md. Some of this will need adjusting once we see actual message wording/formats.
+Draft for team review — edit freely once we see the real message samples in test_assets/telebirr_sms_samples.md. Some of this will need adjusting once we see actual message wording/formats.
 
 # Fields to extract
 # Amount

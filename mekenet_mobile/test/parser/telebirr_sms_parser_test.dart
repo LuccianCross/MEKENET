@@ -1,9 +1,13 @@
-import 'package:test/test.dart';
-import 'package:app/lib/services/parser/telebirr_sms_parser.dart';
+// Parser test spec — runs once the TeleBirr parser is implemented.
+// See lib/services/parser/EXTRACTION_SPEC.md for what fields to extract.
+// See test_assets/telebirr_sms_samples.md for the source messages.
+//
+// This file will not compile until lib/services/parser/telebirr_sms_parser.dart
+// exists with a TelebirrSmsParser class and TransactionDirection enum.
+// Run with: flutter test test/parser/telebirr_sms_parser_test.dart
 
-// These are the exact 10 real, redacted messages saved in
-// app/test_assets/telebirr_sms_samples.md. Keep this file in sync with
-// that one if new samples are added.
+import 'package:test/test.dart';
+import 'package:mekenet/services/parser/telebirr_sms_parser.dart';
 
 const msg001 = '''
 Dear [name]
