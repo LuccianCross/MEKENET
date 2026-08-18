@@ -1,108 +1,13 @@
-import 'dart:developer' as developer;
-
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:path/path.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart' hide Transaction;
 
+import '../database/database_helper.dart';
 import '../models/transaction.dart';
 import 'transaction_repository.dart';
 
-class SqliteTransactionRepository implements TransactionRepository {
-  static Database? _database;
-
-  static const FlutterSecureStorage _secureStorage =
-      FlutterSecureStorage();
-
-  static const String _keyName = 'mekenet_db_key';
-
+class SqliteTransactionRepository
+    implements TransactionRepository {
   Future<Database> get _db async {
-    if (_database != null) {
-      return _database!;
-    }
-
-    _database = await _initDatabase();
-    return _database!;
-  }
-
-  Future<Database> _initDatabase() async {
-    final key = await _getOrCreateKey();
-
-    final databasesPath = await getDatabasesPath();
-    final databasePath = join(
-      databasesPath,
-      'mekenet.db',
-    );
-
-    return openDatabase(
-      databasePath,
-      version: 1,
-      password: key,
-      onCreate: _onCreate,
-    );
-  }
-
-  Future<String> _getOrCreateKey() async {
-    String? key = await _secureStorage.read(
-      key: _keyName,
-    );
-
-    if (key == null || key.isEmpty) {
-      key = _generateKey();
-
-      await _secureStorage.write(
-        key: _keyName,
-        value: key,
-      );
-    }
-
-    return key;
-  }
-
-  String _generateKey() {
-    final timestamp = DateTime.now().microsecondsSinceEpoch;
-
-    return 'mekenet-${timestamp.toRadixString(16)}-${Object().hashCode}';
-  }
-
-  Future<void> _onCreate(
-    Database db,
-    int version,
-  ) async {
-    await db.execute('''
-      CREATE TABLE transactions (
-        id TEXT PRIMARY KEY,
-        direction TEXT NOT NULL,
-        amount REAL NOT NULL,
-        source TEXT NOT NULL,
-        raw_sms_hash TEXT,
-        counterparty_masked TEXT NOT NULL,
-        item_id TEXT,
-        match_confidence TEXT DEFAULT 'unmatched',
-        category TEXT,
-        timestamp INTEGER NOT NULL,
-        synced INTEGER DEFAULT 0
-      )
-    ''');
-
-    await db.execute(
-      'CREATE INDEX idx_transactions_timestamp '
-      'ON transactions(timestamp)',
-    );
-
-    await db.execute(
-      'CREATE INDEX idx_transactions_synced '
-      'ON transactions(synced)',
-    );
-
-    await db.execute(
-      'CREATE INDEX idx_transactions_raw_sms_hash '
-      'ON transactions(raw_sms_hash)',
-    );
-
-    developer.log(
-      'Transactions table created successfully',
-      name: 'Mekenet.DB',
-    );
+    return DatabaseHelper.instance.database;
   }
 
   @override
