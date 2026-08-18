@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+
 import 'screens/home_screen.dart';
 import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/bottom_nav_bar.dart';
+import 'services/sms/sms_listener.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final smsListener = SmsListener();
+  await smsListener.initialize();
+
   runApp(const MyApp());
 }
 
@@ -51,6 +58,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+
     _screens = const [
       HomeScreen(),
       QuickAddScreen(),

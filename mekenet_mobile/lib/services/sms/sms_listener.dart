@@ -32,10 +32,13 @@ class SmsListener {
 
           _handleSms(smsText);
         },
-        listenInBackground: true,
+        listenInBackground: false,
       );
     } catch (e) {
-      _logger.e('Error initializing SMS listener', error: e);
+      _logger.e(
+        'Error initializing SMS listener',
+        error: e,
+      );
     }
   }
 
@@ -47,6 +50,7 @@ class SmsListener {
         return;
       }
 
+      // Parse the Telebirr SMS.
       final parsed = TelebirrSmsParser.parse(smsText);
 
       if (parsed == null) {
@@ -69,11 +73,13 @@ class SmsListener {
         return;
       }
 
+      // Map parser direction to Transaction direction.
       final direction =
           parsed.direction == TransactionDirection.received
               ? 'income'
               : 'expense';
 
+      // Create transaction.
       final transaction = Transaction(
         direction: direction,
         amount: parsed.amount,
@@ -83,11 +89,15 @@ class SmsListener {
         timestamp: parsed.timestamp,
       );
 
+      // Save transaction.
       await RepositoryProvider.transaction.save(transaction);
 
       _logger.i('Telebirr transaction saved');
     } catch (e) {
-      _logger.e('Error handling SMS', error: e);
+      _logger.e(
+        'Error handling SMS',
+        error: e,
+      );
     }
   }
 }
