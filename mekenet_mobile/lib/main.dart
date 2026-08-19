@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
+
+import 'database/database_helper.dart';
 import 'screens/home_screen.dart';
 import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/sync_service.dart';
 import 'widgets/bottom_nav_bar.dart';
+import 'services/sms/sms_listener.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set up device ID for X-Device-ID header before any HTTP request fires.
+  await DatabaseHelper.instance.database;
+
+  final smsListener = SmsListener();
+  await smsListener.initialize();
+
   await SyncService.instance.initialize();
 
   runApp(const MyApp());
@@ -57,6 +64,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+
     _screens = const [
       HomeScreen(),
       QuickAddScreen(),
