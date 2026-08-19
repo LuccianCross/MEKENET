@@ -64,13 +64,23 @@ class TransactionIn(BaseModel):
     @field_validator("date", mode="before")
     @classmethod
     def default_date(cls, v: Optional[str]) -> str:
+        today = datetime.now(timezone.utc).date().isoformat()
+
+        # No value provided — default to today
         if not v:
-            return datetime.now(timezone.utc).date().isoformat()
-        # Basic sanity check — full ISO parsing
+            return today
+
+        # Flutter sometimes sends the Swagger placeholder "string" — treat as missing
+        if v.lower() == "string":
+            return today
+
+        # Validate proper ISO-8601 date format (YYYY-MM-DD)
         try:
             datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
-            raise ValueError("date must be in YYYY-MM-DD format")
+            # Invalid format — fall back to today's date gracefully
+            return today
+
         return v
 
 
