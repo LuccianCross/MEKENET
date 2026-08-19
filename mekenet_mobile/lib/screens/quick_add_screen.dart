@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+
+import '../models/transaction.dart';
+import '../repositories/sqlite_transaction_repository.dart';
+import '../services/sync_service.dart';
 
 class QuickAddScreen extends StatefulWidget {
   const QuickAddScreen({super.key});
@@ -12,6 +17,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   final TextEditingController _noteController = TextEditingController();
   String _selectedCategory = 'Supplies';
   DateTime _selectedDate = DateTime.now();
+  bool _isSaving = false;
+
+  final _repo = SqliteTransactionRepository();
 
   final List<String> _categories = [
     'Supplies',
@@ -140,15 +148,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Expense saved! (Mock)'),
-                    ),
-                  );
-                  _amountController.clear();
-                  _noteController.clear();
-                },
+                onPressed: _isSaving ? null : _saveExpense,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0A8E48),
                   foregroundColor: Colors.white,
@@ -156,10 +156,19 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
-                  'Save Expense',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Save Expense',
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             ),
           ],
@@ -167,4 +176,70 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       ),
     );
   }
-}
+
+  // -----------------------------------------------------------------------
+  // Save logic
+  // -----------------------------------------------------------------------
+
+  Future<void> _saveExpense() async {
+    final amountText = _amountController.text.trim();
+    if (amountText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an amount')),
+      );
+      return;
+    }
+
+    final amount = double.tryParse(amountText);
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid amount')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final note = _noteController.text.trim();
+
+      // Build the Transaction using the real model
+      final tx = Transaction(
+        id: const Uuid().v4(),
+        direction: 'expense',
+        amount: amount,
+        source: 'manual',
+        counterpartyMasked: note.isNotEmpty ? note : _selectedCategory,
+        category: _selectedCategory.toLowerCase(),
+        timestamp: _selectedDate,
+        synced: false,
+      );
+
+      // 1. Save locally first — always works even offline
+      await _repo.save(tx);
+
+      // 2. Attempt backend sync (silently fails if offline)
+      await SyncService.instance.syncOne(tx);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Expense saved ✓'),
+            backgroundColor: Color(0xFF0A8E48),
+          ),
+        );
+        _amountController.clear();
+        _noteController.clear();
+        setState(() => _selectedDate = DateTime.now());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving expense: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+}
