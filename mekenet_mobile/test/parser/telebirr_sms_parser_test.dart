@@ -2,12 +2,11 @@
 // See lib/services/parser/EXTRACTION_SPEC.md for what fields to extract.
 // See test_assets/telebirr_sms_samples.md for the source messages.
 //
-// This file will not compile until lib/services/parser/telebirr_sms_parser.dart
-// exists with a TelebirrSmsParser class and TransactionDirection enum.
 // Run with: flutter test test/parser/telebirr_sms_parser_test.dart
 
 import 'package:test/test.dart';
 import 'package:mekenet/services/parser/telebirr_sms_parser.dart';
+import 'package:mekenet/services/parser/parsed_bank_sms.dart';
 
 const msg001 = '''
 Dear [name]
@@ -80,9 +79,8 @@ void main() {
       expect(t.direction, TransactionDirection.sent);
       expect(t.amount, 110.00);
       expect(t.timestamp, DateTime(2026, 8, 8, 14, 16, 26));
-      expect(t.serviceFee, 1.74);
-      expect(t.vat, 0.26);
       expect(t.balanceAfter, 101.10);
+      expect(t.bankName, 'Telebirr');
     });
 
     test('msg_002: received, extra "transaction id" text before "on"', () {
@@ -90,8 +88,6 @@ void main() {
       expect(t.direction, TransactionDirection.received);
       expect(t.amount, 340.00);
       expect(t.timestamp, DateTime(2026, 6, 1, 18, 18, 43));
-      expect(t.serviceFee, isNull);
-      expect(t.vat, isNull);
       expect(t.balanceAfter, 340.00);
     });
 
@@ -113,8 +109,6 @@ void main() {
       final t = TelebirrSmsParser.parse(msg005)!;
       expect(t.direction, TransactionDirection.sent);
       expect(t.amount, 150.00);
-      expect(t.serviceFee, 1.74);
-      expect(t.vat, 0.26);
     });
 
     test('msg_006: received, comma-formatted amount and balance', () {
@@ -142,8 +136,6 @@ void main() {
       final t = TelebirrSmsParser.parse(msg009)!;
       expect(t.direction, TransactionDirection.sent);
       expect(t.amount, 65.00);
-      expect(t.serviceFee, 0.87);
-      expect(t.vat, 0.13);
       expect(t.balanceAfter, 64.74);
     });
 

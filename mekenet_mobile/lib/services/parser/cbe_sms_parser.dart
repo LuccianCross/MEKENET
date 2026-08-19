@@ -1,25 +1,28 @@
 import 'parsed_bank_sms.dart';
 
-class TelebirrSmsParser {
-  static final _amountPattern = RegExp(r'ETB\s+([\d,]+\.\d{2})');
+class CbeSmsParser {
+  static final _amountPattern = RegExp(r'ETB\s*([\d,]+\.\d{2})');
   static final _datePattern = RegExp(
     r'on\s+(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2})',
   );
   static final _balancePattern = RegExp(
-    r'balance is\s+ETB\s+([\d,]+\.\d{2})',
+    r'balance\s+is\s+ETB\s*([\d,]+\.\d{2})',
   );
 
   static ParsedBankSms? parse(String smsText) {
     if (smsText.isEmpty) return null;
     if (!smsText.contains('ETB')) return null;
-    if (!smsText.toLowerCase().contains('telebirr')) return null;
-
-    if (!smsText.contains('You have transferred') &&
-        !smsText.contains('You have received')) {
+    if (!smsText.contains('CBE') &&
+        !smsText.contains('Commercial Bank')) {
       return null;
     }
 
-    final direction = smsText.contains('You have transferred')
+    if (!smsText.contains('debited') &&
+        !smsText.contains('credited')) {
+      return null;
+    }
+
+    final direction = smsText.contains('debited')
         ? TransactionDirection.sent
         : TransactionDirection.received;
 
@@ -46,7 +49,7 @@ class TelebirrSmsParser {
     final balanceMatch = _balancePattern.firstMatch(smsText);
 
     return ParsedBankSms(
-      bankName: 'Telebirr',
+      bankName: 'CBE',
       direction: direction,
       amount: amount,
       timestamp: timestamp,

@@ -6,6 +6,11 @@ import 'package:logger/logger.dart';
 
 import '../../models/transaction.dart';
 import '../../repositories/repository_provider.dart';
+import '../parser/awash_sms_parser.dart';
+import '../parser/bank_identifier.dart';
+import '../parser/cbe_sms_parser.dart';
+import '../parser/failed_parse_log.dart';
+import '../parser/parsed_bank_sms.dart';
 import '../parser/telebirr_sms_parser.dart';
 
 class SmsListener {
@@ -14,6 +19,8 @@ class SmsListener {
 
   Future<void> initialize() async {
     try {
+      await BankIdentifier.load();
+
       final permissionGranted =
           await _telephony.requestSmsPermissions;
 
@@ -30,10 +37,12 @@ class SmsListener {
             return;
           }
 
-          _handleSms(smsText);
+          _handleSms(smsText, message.address);
         },
         listenInBackground: false,
       );
+
+      _logger.i('SMS listener initialized');
     } catch (e) {
       _logger.e(
         'Error initializing SMS listener',
@@ -42,27 +51,39 @@ class SmsListener {
     }
   }
 
-  Future<void> _handleSms(String smsText) async {
+  Future<void> _handleSms(String smsText, String? sender) async {
     try {
-      // Ignore non-Telebirr SMS.
-      if (!smsText.contains('ETB') ||
-          !smsText.contains('Telebirr')) {
+      final bankName = await BankIdentifier.identify(sender, smsText);
+
+      if (bankName == null) {
+        await FailedParseLog.save(smsText, sender, 'no_bank_match');
+        _logger.w('Unknown sender: $sender');
         return;
       }
 
-      // Parse the Telebirr SMS.
-      final parsed = TelebirrSmsParser.parse(smsText);
+      ParsedBankSms? parsed;
+
+      switch (bankName) {
+        case 'Telebirr':
+          parsed = TelebirrSmsParser.parse(smsText);
+          break;
+        case 'CBE':
+          parsed = CbeSmsParser.parse(smsText);
+          break;
+        case 'Awash':
+          parsed = AwashSmsParser.parse(smsText);
+          break;
+      }
 
       if (parsed == null) {
-        _logger.w('Failed to parse Telebirr SMS');
+        await FailedParseLog.save(smsText, sender, 'parse_error');
+        _logger.w('Failed to parse $bankName SMS');
         return;
       }
 
-      // Create a stable hash for deduplication.
       final smsHash =
           sha256.convert(utf8.encode(smsText)).toString();
 
-      // Ignore duplicate SMS.
       final alreadyExists =
           await RepositoryProvider.transaction.existsBySmsHash(
         smsHash,
@@ -73,26 +94,23 @@ class SmsListener {
         return;
       }
 
-      // Map parser direction to Transaction direction.
       final direction =
           parsed.direction == TransactionDirection.received
               ? 'income'
               : 'expense';
 
-      // Create transaction.
       final transaction = Transaction(
         direction: direction,
         amount: parsed.amount,
-        source: 'telebirr',
+        source: bankName.toLowerCase(),
         rawSmsHash: smsHash,
-        counterpartyMasked: 'Telebirr',
+        counterpartyMasked: bankName,
         timestamp: parsed.timestamp,
       );
 
-      // Save transaction.
       await RepositoryProvider.transaction.save(transaction);
 
-      _logger.i('Telebirr transaction saved');
+      _logger.i('$bankName transaction saved');
     } catch (e) {
       _logger.e(
         'Error handling SMS',

@@ -86,6 +86,7 @@ class DatabaseHelper {
   ) async {
     await _createTransactionsTable(db);
     await _createDebtsTable(db);
+    await _createFailedParsesTable(db);
 
     developer.log(
       'Database tables created successfully',
@@ -149,6 +150,20 @@ class DatabaseHelper {
     await db.execute('''
       CREATE INDEX idx_debts_created_at
       ON debts(created_at)
+    ''');
+  }
+
+  Future<void> _createFailedParsesTable(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE failed_parses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        raw_sms TEXT NOT NULL,
+        sender TEXT,
+        reason TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
     ''');
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'database/database_helper.dart';
 import 'screens/home_screen.dart';
 import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
@@ -9,6 +10,8 @@ import 'services/sms/sms_listener.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await DatabaseHelper.instance.database;
 
   final smsListener = SmsListener();
   await smsListener.initialize();
