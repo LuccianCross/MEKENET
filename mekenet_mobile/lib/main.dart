@@ -3,9 +3,15 @@ import 'screens/home_screen.dart';
 import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/sync_service.dart';
 import 'widgets/bottom_nav_bar.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Set up device ID for X-Device-ID header before any HTTP request fires.
+  await SyncService.instance.initialize();
+
   runApp(const MyApp());
 }
 
