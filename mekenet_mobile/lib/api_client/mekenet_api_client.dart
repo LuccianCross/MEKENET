@@ -95,7 +95,7 @@ class MekenetApiClient {
   }
 
   // -------------------------------------------------------------------------
-  // POST /export/
+  // GET /export/
   // -------------------------------------------------------------------------
 
   /// Fetch a financial report from the backend.
@@ -117,7 +117,7 @@ class MekenetApiClient {
 
     try {
       final response = await http
-          .post(uri, headers: _headers)
+          .get(uri, headers: _headers)
           .timeout(_timeout);
 
       if (response.statusCode == 200) {
