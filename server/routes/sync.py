@@ -4,54 +4,28 @@ routes/sync.py
 POST /sync
 
 Accepts a transaction payload from the Flutter app and writes it into
-the in-memory fake store.
-
-Swap guide (when Postgres env arrives):
-  - Remove the `fake_db` import.
-  - Inject `db: Session = Depends(get_db)`.
-  - Replace `fake_db.insert_transaction(tx_dict)` with:
-        db.add(Transaction(**tx_dict))
-        db.commit()
+the Postgres database. Deduplicates by transaction id.
 """
 
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.orm import Session
 
-import fake_db
+from db.database import get_db
+from models.transaction import Transaction
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
-# ---------------------------------------------------------------------------
-# Request schema
-# ---------------------------------------------------------------------------
-
 class TransactionIn(BaseModel):
-    """
-    The exact shape Flutter sends over the wire.
-
-    Field notes
-    -----------
-    id          – client-generated UUID/string; deduplicated on the server.
-    type        – "income" or "expense" only.
-    amount      – must be positive; stored as float to handle cents.
-    description – free text, trimmed on arrival.
-    date        – ISO-8601 date string (YYYY-MM-DD); falls back to today.
-    category    – optional label (e.g. "food", "transport").
-    currency    – defaults to "ETB" (Ethiopian Birr) to match Mekenet scope.
-    """
-
     id: str = Field(..., description="Client-generated transaction ID")
     type: Literal["income", "expense"]
     amount: float = Field(..., gt=0, description="Must be positive")
     description: str = Field(..., min_length=1, max_length=500)
-    date: Optional[str] = Field(
-        default=None,
-        description="ISO-8601 date string (YYYY-MM-DD). Defaults to today.",
-    )
+    date: Optional[str] = Field(default=None)
     category: Optional[str] = Field(default="uncategorized")
     currency: str = Field(default="ETB", max_length=10)
 
@@ -72,36 +46,23 @@ class TransactionIn(BaseModel):
         return v
 
 
-# ---------------------------------------------------------------------------
-# Response schema
-# ---------------------------------------------------------------------------
-
 class SyncResponse(BaseModel):
     success: bool
     message: str
     transaction_id: str
-    stored_count: int = Field(
-        description="Total transactions in the fake store after this sync"
-    )
+    stored_count: int
 
-
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
 
 @router.post(
     "/",
     response_model=SyncResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Sync a transaction from the Flutter app",
-    description=(
-        "Validates and stores a single transaction, deduplicating by id. "
-        "Backed by an in-memory list until Postgres is wired."
-    ),
 )
 def sync_transaction(
     payload: TransactionIn,
     x_device_id: Optional[str] = Header(default=None, alias="X-Device-ID"),
+    db: Session = Depends(get_db),
 ) -> SyncResponse:
     if not x_device_id:
         raise HTTPException(
@@ -109,19 +70,9 @@ def sync_transaction(
             detail="Missing X-Device-ID header",
         )
 
-    tx_dict = payload.model_dump()
-    tx_dict["synced_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-    try:
-        result = fake_db.insert_transaction(tx_dict)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Storage error: {exc}",
-        )
-
-    if result == "duplicate":
-        stored_count = len(fake_db.get_all_transactions())
+    existing = db.query(Transaction).filter(Transaction.id == payload.id).first()
+    if existing:
+        stored_count = db.query(Transaction).count()
         return SyncResponse(
             success=True,
             message="Transaction already exists (deduplicated)",
@@ -129,7 +80,20 @@ def sync_transaction(
             stored_count=stored_count,
         )
 
-    stored_count = len(fake_db.get_all_transactions())
+    tx = Transaction(
+        id=payload.id,
+        type=payload.type,
+        amount=payload.amount,
+        description=payload.description,
+        date=payload.date or datetime.now(timezone.utc).date().isoformat(),
+        category=payload.category or "uncategorized",
+        currency=payload.currency,
+        device_id=x_device_id,
+    )
+    db.add(tx)
+    db.commit()
+
+    stored_count = db.query(Transaction).count()
 
     return SyncResponse(
         success=True,
