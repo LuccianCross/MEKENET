@@ -4,7 +4,7 @@ class ParsedBankSms {
   final String bankName;
   final TransactionDirection direction;
   final double amount;
-  final DateTime timestamp;
+  final DateTime? timestamp;
   final double? balanceAfter;
 
   const ParsedBankSms({
