@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _totalOwed = 0;
   List<Transaction> _recentTransactions = [];
   bool _isLoading = true;
+  String? _error;
   StreamSubscription<void>? _smsSub;
 
   @override
@@ -37,7 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
       final now = DateTime.now();
@@ -61,7 +65,12 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
+      }
     }
   }
 
@@ -76,6 +85,10 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_none),
             onPressed: () {},
           ),
@@ -83,7 +96,35 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : _error != null
+              ? ListView(
+                  children: [
+                    const SizedBox(height: 120),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.error_outline, size: 50, color: Colors.red),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Could not load data',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(_error!, textAlign: TextAlign.center),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: _loadData,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : RefreshIndicator(
               onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
