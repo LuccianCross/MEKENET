@@ -6,6 +6,13 @@ import 'repositories/repository_provider.dart';
 
 import 'screens/onboarding_screen.dart';
 import 'screens/pin_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/quick_add_screen.dart';
+import 'screens/debts_screen.dart';
+import 'screens/settings_screen.dart';
+import 'services/sync_service.dart';
+import 'services/sms/sms_listener.dart';
+import 'widgets/bottom_nav_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +23,8 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Database initialization error: $e');
   }
+
+  await SyncService.instance.initialize();
 
   runApp(const MyApp());
 }
@@ -82,6 +91,50 @@ class StartupScreen extends StatelessWidget {
 
         return const OnboardingScreen();
       },
+    );
+  }
+}
+
+// ========== MainScreen ==========
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _screens = const [
+      HomeScreen(),
+      QuickAddScreen(),
+      DebtsScreen(),
+      SettingsScreen(),
+    ];
+
+    // Initialize SMS listener AFTER UI is ready
+    SmsListener.instance.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_currentIndex],
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+      ),
     );
   }
 }

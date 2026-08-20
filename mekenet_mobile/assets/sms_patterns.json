@@ -2,10 +2,10 @@
   "banks": [
     {
       "name": "Telebirr",
-      "senders": ["8047"],
+      "senders": ["8047", "127"],
       "keywords": ["Telebirr"],
-      "direction_out": "You have transferred",
-      "direction_in": "You have received"
+      "direction_out": "transferred",
+      "direction_in": "received"
     },
     {
       "name": "CBE",

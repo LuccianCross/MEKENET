@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'pin_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
