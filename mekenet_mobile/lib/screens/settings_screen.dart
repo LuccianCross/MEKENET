@@ -6,10 +6,19 @@
 ///      a formatted bottom sheet with real backend data.
 
 import 'package:flutter/material.dart';
+import 'package:another_telephony/telephony.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../api_client/mekenet_api_client.dart';
 import '../models/export_report.dart';
 import '../services/sync_service.dart';
+import '../services/parser/bank_identifier.dart';
+import '../services/parser/telebirr_sms_parser.dart';
+import '../services/parser/cbe_sms_parser.dart';
+import '../services/parser/awash_sms_parser.dart';
+import '../services/parser/parsed_bank_sms.dart';
+import '../services/parser/failed_parse_log.dart';
+import '../repositories/repository_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -223,6 +232,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text('Version'),
                     subtitle: Text('Mekenet v0.1.0'),
                     trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                  ),
+                  const Divider(height: 1),
+
+                  // Debug SMS tile
+                  ListTile(
+                    leading: const Icon(Icons.bug_report, color: Colors.orange),
+                    title: const Text('Debug SMS'),
+                    subtitle: const Text('Test each SMS pipeline step'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _runSmsDebug(context),
                   ),
                 ],
               ),
@@ -504,6 +523,166 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _runSmsDebug(BuildContext context) async {
+    final results = <String>[];
+    results.add('=== SMS DEBUG START ===\n');
+
+    // ── CHECK 1: Permissions ──
+    results.add('--- CHECK 1: Permissions ---');
+    try {
+      final telephony = Telephony.instance;
+      final telePerm = await telephony.requestSmsPermissions;
+      results.add('another_telephony permission: ${telePerm ?? "null"}');
+    } catch (e) {
+      results.add('another_telephony permission ERROR: $e');
+    }
+    try {
+      final status = await Permission.sms.status;
+      results.add('permission_handler READ_SMS: ${status.isGranted}');
+    } catch (e) {
+      results.add('permission_handler ERROR: $e');
+    }
+    try {
+      final recv = await Permission.sms.status;
+      results.add('permission_handler SMS status: $recv');
+    } catch (e) {
+      results.add('RECEIVE_SMS check ERROR: $e');
+    }
+    results.add('');
+
+    // ── CHECK 2: Read Inbox ──
+    results.add('--- CHECK 2: Read Inbox ---');
+    int inboxCount = 0;
+    List<SmsMessage> todaySms = [];
+    try {
+      final telephony = Telephony.instance;
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final allSms = await telephony.getInboxSms(
+        columns: [SmsColumn.ID, SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+        filter: SmsFilter.where(SmsColumn.DATE).greaterThan(
+          startOfDay.millisecondsSinceEpoch.toString(),
+        ),
+        sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
+      );
+      inboxCount = allSms.length;
+      results.add('Total SMS from today: $inboxCount');
+      todaySms = allSms;
+      // Show first 5 raw messages
+      final show = allSms.take(5).toList();
+      for (int i = 0; i < show.length; i++) {
+        final s = show[i];
+        results.add('  [$i] From: ${s.address}');
+        results.add('       Body: ${(s.body ?? "null").substring(0, (s.body?.length ?? 0).clamp(0, 120))}');
+      }
+      if (allSms.isEmpty) {
+        results.add('  (No SMS found from today)');
+      }
+    } catch (e) {
+      results.add('Inbox read ERROR: $e');
+    }
+    results.add('');
+
+    // ── CHECK 3: Bank Identification ──
+    results.add('--- CHECK 3: Bank Identification ---');
+    try {
+      await BankIdentifier.load();
+      int identified = 0;
+      for (final sms in todaySms) {
+        final bank = await BankIdentifier.identify(sms.address, sms.body ?? '');
+        if (bank != null) {
+          identified++;
+          results.add('  From ${sms.address} → $bank');
+        }
+      }
+      results.add('Identified: $identified / ${todaySms.length}');
+      if (identified == 0 && todaySms.isNotEmpty) {
+        results.add('  (None matched any bank sender or keyword)');
+        // Show addresses for debugging
+        final addrs = todaySms.map((s) => s.address).toSet();
+        results.add('  Unique senders: ${addrs.join(", ")}');
+      }
+    } catch (e) {
+      results.add('Bank identification ERROR: $e');
+    }
+    results.add('');
+
+    // ── CHECK 4: Parser ──
+    results.add('--- CHECK 4: Parser ---');
+    try {
+      int parsed = 0;
+      for (final sms in todaySms) {
+        final bank = await BankIdentifier.identify(sms.address, sms.body ?? '');
+        if (bank == null) continue;
+        ParsedBankSms? result;
+        switch (bank) {
+          case 'Telebirr':
+            result = TelebirrSmsParser.parse(sms.body ?? '');
+            break;
+          case 'CBE':
+            result = CbeSmsParser.parse(sms.body ?? '');
+            break;
+          case 'Awash':
+            result = AwashSmsParser.parse(sms.body ?? '');
+            break;
+        }
+        if (result != null) {
+          parsed++;
+          results.add('  ${result.bankName} → ${result.direction} Br${result.amount}');
+        } else {
+          results.add('  $bank parse FAILED: ${(sms.body ?? "").substring(0, (sms.body?.length ?? 0).clamp(0, 80))}');
+        }
+      }
+      results.add('Parsed: $parsed');
+    } catch (e) {
+      results.add('Parser ERROR: $e');
+    }
+    results.add('');
+
+    // ── CHECK 5: Database ──
+    results.add('--- CHECK 5: Database ---');
+    try {
+      final txCount = await RepositoryProvider.transaction.getThisWeek();
+      results.add('Transactions this week: ${txCount.length}');
+      final failedCount = await FailedParseLog.count();
+      results.add('Failed parses logged: $failedCount');
+      if (failedCount > 0) {
+        final failures = await FailedParseLog.getAll();
+        for (final f in failures.take(3)) {
+          results.add('  Reason: ${f.reason} | Sender: ${f.sender}');
+          results.add('  SMS: ${f.rawSms.substring(0, (f.rawSms.length).clamp(0, 80))}');
+        }
+      }
+    } catch (e) {
+      results.add('Database ERROR: $e');
+    }
+    results.add('');
+    results.add('=== SMS DEBUG END ===');
+
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('SMS Debug Results'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Text(
+              results.join('\n'),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

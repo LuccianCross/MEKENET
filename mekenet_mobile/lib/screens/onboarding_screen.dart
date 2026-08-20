@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'pin_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -110,7 +111,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             );
                           },
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.white.withValues(alpha: 0.7),
+                            foregroundColor:
+                                Colors.white.withValues(alpha: 0.7),
                           ),
                           child: const Text('Skip'),
                         ),

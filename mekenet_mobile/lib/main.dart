@@ -9,16 +9,13 @@ import 'screens/settings_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/pin_screen.dart';
 import 'services/sync_service.dart';
-import 'widgets/bottom_nav_bar.dart';
 import 'services/sms/sms_listener.dart';
+import 'widgets/bottom_nav_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await DatabaseHelper.instance.database;
-
-  final smsListener = SmsListener();
-  await smsListener.initialize();
 
   await SyncService.instance.initialize();
 
@@ -120,6 +117,9 @@ class _MainScreenState extends State<MainScreen> {
       DebtsScreen(),
       SettingsScreen(),
     ];
+
+    // Initialize SMS listener AFTER UI is ready (Activity exists for permission dialog)
+    SmsListener.instance.initialize();
   }
 
   @override

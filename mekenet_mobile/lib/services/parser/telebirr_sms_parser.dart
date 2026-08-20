@@ -11,17 +11,25 @@ class TelebirrSmsParser {
 
   static ParsedBankSms? parse(String smsText) {
     if (smsText.isEmpty) return null;
-    if (!smsText.contains('ETB')) return null;
-    if (!smsText.toLowerCase().contains('telebirr')) return null;
+    if (!smsText.toUpperCase().contains('ETB')) return null;
 
-    if (!smsText.contains('You have transferred') &&
-        !smsText.contains('You have received')) {
-      return null;
-    }
+    final lower = smsText.toLowerCase();
 
-    final direction = smsText.contains('You have transferred')
-        ? TransactionDirection.sent
-        : TransactionDirection.received;
+    // Detect direction: look for transfer/receive keywords (handles typos, spacing)
+    final isSent = lower.contains('transferred') ||
+        lower.contains('tranfered') ||
+        lower.contains('have transferred') ||
+        lower.contains('havetranfered') ||
+        (lower.contains('transfer') && lower.contains('to '));
+
+    final isReceived = lower.contains('you have received') ||
+        lower.contains('you havereceived') ||
+        lower.contains('received');
+
+    if (!isSent && !isReceived) return null;
+
+    final direction =
+        isSent ? TransactionDirection.sent : TransactionDirection.received;
 
     final amountMatch = _amountPattern.firstMatch(smsText);
     if (amountMatch == null) return null;

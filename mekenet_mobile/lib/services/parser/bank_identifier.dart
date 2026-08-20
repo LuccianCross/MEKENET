@@ -33,18 +33,37 @@ class BankIdentifier {
     }).toList();
   }
 
+  static Future<List<String>> getAllSenderPrefixes() async {
+    await load();
+    if (_banks == null) return [];
+    final prefixes = <String>[];
+    for (final bank in _banks!) {
+      prefixes.addAll(bank.senders);
+    }
+    return prefixes;
+  }
+
   static Future<String?> identify(String? sender, String smsText) async {
     await load();
 
     if (_banks == null || _banks!.isEmpty) return null;
 
+    // Normalize sender: strip +, country code prefixes
+    final normalizedSender = sender?.replaceAll(RegExp(r'^\+?251'), '');
+
     for (final bank in _banks!) {
-      if (sender != null && bank.senders.contains(sender)) {
-        return bank.name;
+      // Match sender by endsWith (handles +251911234, 2518047, 8047, etc.)
+      if (normalizedSender != null) {
+        for (final knownSender in bank.senders) {
+          if (normalizedSender.endsWith(knownSender) ||
+              knownSender.endsWith(normalizedSender)) {
+            return bank.name;
+          }
+        }
       }
 
       for (final keyword in bank.keywords) {
-        if (smsText.contains(keyword)) {
+        if (smsText.toLowerCase().contains(keyword.toLowerCase())) {
           return bank.name;
         }
       }

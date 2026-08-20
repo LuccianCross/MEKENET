@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/transaction.dart';
 import '../repositories/repository_provider.dart';
+import '../services/sms/sms_listener.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,11 +19,21 @@ class _HomeScreenState extends State<HomeScreen> {
   double _totalOwed = 0;
   List<Transaction> _recentTransactions = [];
   bool _isLoading = true;
+  StreamSubscription<void>? _smsSub;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _smsSub = SmsListener.instance.onTransactionAdded.listen((_) {
+      if (mounted) _loadData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _smsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
