@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'database/database_helper.dart';
 import 'screens/home_screen.dart';
 import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'screens/pin_screen.dart';
 import 'services/sync_service.dart';
-import 'widgets/bottom_nav_bar.dart';
 import 'services/sms/sms_listener.dart';
+import 'widgets/bottom_nav_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await DatabaseHelper.instance.database;
-
-  final smsListener = SmsListener();
-  await smsListener.initialize();
 
   await SyncService.instance.initialize();
 
@@ -43,9 +43,55 @@ class MyApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const MainScreen(),
+      home: const StartupScreen(),
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+class StartupScreen extends StatefulWidget {
+  const StartupScreen({super.key});
+
+  @override
+  State<StartupScreen> createState() => _StartupScreenState();
+}
+
+class _StartupScreenState extends State<StartupScreen> {
+  static const _secureStorage = FlutterSecureStorage();
+  bool _checking = true;
+  bool _hasPin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPin();
+  }
+
+  Future<void> _checkPin() async {
+    final hasPin = await _secureStorage.read(key: 'mekenet_has_pin') == 'true';
+    if (mounted) {
+      setState(() {
+        _hasPin = hasPin;
+        _checking = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF0A8E48)),
+        ),
+      );
+    }
+
+    if (_hasPin) {
+      return const PinScreen();
+    }
+
+    return const OnboardingScreen();
   }
 }
 
@@ -71,6 +117,9 @@ class _MainScreenState extends State<MainScreen> {
       DebtsScreen(),
       SettingsScreen(),
     ];
+
+    // Initialize SMS listener AFTER UI is ready (Activity exists for permission dialog)
+    SmsListener.instance.initialize();
   }
 
   @override

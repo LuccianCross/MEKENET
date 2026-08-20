@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:another_telephony/telephony.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
+import 'package:permission_handler/permission_handler.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/transaction.dart';
 import '../../repositories/repository_provider.dart';
 import '../parser/awash_sms_parser.dart';
@@ -13,109 +18,187 @@ import '../parser/failed_parse_log.dart';
 import '../parser/parsed_bank_sms.dart';
 import '../parser/telebirr_sms_parser.dart';
 
+@pragma('vm:entry-point')
+void onBackgroundMessage(SmsMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
+
+  final body = message.body;
+  final sender = message.address;
+
+  if (body == null || body.isEmpty) return;
+
+  final logger = Logger();
+  logger.i('BG SMS from $sender');
+
+  await DatabaseHelper.instance.database;
+  await BankIdentifier.load();
+
+  await _handleSmsStatic(body, sender, logger);
+}
+
+Future<void> _handleSmsStatic(
+  String smsText,
+  String? sender,
+  Logger logger,
+) async {
+  try {
+    final bankName = await BankIdentifier.identify(sender, smsText);
+
+    if (bankName == null) {
+      await FailedParseLog.save(smsText, sender, 'no_bank_match');
+      logger.w('BG: Unknown sender: $sender');
+      return;
+    }
+
+    logger.i('BG: Identified bank: $bankName');
+
+    ParsedBankSms? parsed;
+
+    switch (bankName) {
+      case 'Telebirr':
+        parsed = TelebirrSmsParser.parse(smsText);
+        break;
+      case 'CBE':
+        parsed = CbeSmsParser.parse(smsText);
+        break;
+      case 'Awash':
+        parsed = AwashSmsParser.parse(smsText);
+        break;
+    }
+
+    if (parsed == null) {
+      await FailedParseLog.save(smsText, sender, 'parse_error');
+      logger.w('BG: Failed to parse $bankName SMS');
+      return;
+    }
+
+    final smsHash = sha256.convert(utf8.encode(smsText)).toString();
+
+    final alreadyExists =
+        await RepositoryProvider.transaction.existsBySmsHash(smsHash);
+
+    if (alreadyExists) {
+      logger.i('BG: Duplicate SMS ignored');
+      return;
+    }
+
+    final direction =
+        parsed.direction == TransactionDirection.received ? 'income' : 'expense';
+
+    final transaction = Transaction(
+      direction: direction,
+      amount: parsed.amount,
+      source: bankName.toLowerCase(),
+      rawSmsHash: smsHash,
+      counterpartyMasked: bankName,
+      timestamp: parsed.timestamp,
+    );
+
+    await RepositoryProvider.transaction.save(transaction);
+    SmsListener.transactionStream.add(null);
+
+    logger.i('BG: $bankName transaction saved: $direction Br${parsed.amount}');
+  } catch (e) {
+    logger.e('BG: Error handling SMS', error: e);
+  }
+}
+
 class SmsListener {
+  SmsListener._();
+  static final SmsListener instance = SmsListener._();
+
   final Telephony _telephony = Telephony.instance;
   final Logger _logger = Logger();
+  bool _initialized = false;
+
+  static final StreamController<void> transactionStream =
+      StreamController<void>.broadcast();
+  Stream<void> get onTransactionAdded => transactionStream.stream;
 
   Future<void> initialize() async {
+    if (_initialized) return;
+
     try {
       await BankIdentifier.load();
 
-      final permissionGranted =
-          await _telephony.requestSmsPermissions;
-
+      // Request SMS permissions via another_telephony (handles RECEIVE_SMS + READ_SMS)
+      final permissionGranted = await _telephony.requestSmsPermissions;
       if (permissionGranted != true) {
-        _logger.w('SMS permission denied');
-        return;
+        // Fallback: try permission_handler for READ_SMS
+        final status = await Permission.sms.request();
+        if (!status.isGranted) {
+          _logger.w('SMS permission not granted');
+          return;
+        }
       }
 
+      // Listen for incoming SMS — foreground AND background
       _telephony.listenIncomingSms(
         onNewMessage: (SmsMessage message) {
           final smsText = message.body;
-
-          if (smsText == null || smsText.isEmpty) {
-            return;
-          }
-
+          if (smsText == null || smsText.isEmpty) return;
           _handleSms(smsText, message.address);
         },
-        listenInBackground: false,
+        onBackgroundMessage: onBackgroundMessage,
       );
 
-      _logger.i('SMS listener initialized');
+      _initialized = true;
+      _logger.i('SMS listener initialized (foreground + background)');
+
+      // Sync today's inbox to catch messages received while app was closed
+      _syncInbox();
     } catch (e) {
-      _logger.e(
-        'Error initializing SMS listener',
-        error: e,
+      _logger.e('Error initializing SMS listener', error: e);
+    }
+  }
+
+  /// Read today's SMS inbox from known bank senders
+  void _syncInbox() async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+
+      // Fetch all SMS from today, filter by sender in Dart
+      final messages = await _telephony.getInboxSms(
+        columns: [
+          SmsColumn.ID,
+          SmsColumn.ADDRESS,
+          SmsColumn.BODY,
+          SmsColumn.DATE,
+        ],
+        filter: SmsFilter.where(SmsColumn.DATE).greaterThan(
+          startOfDay.millisecondsSinceEpoch.toString(),
+        ),
+        sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
       );
+
+      int processed = 0;
+
+      for (final sms in messages) {
+        final smsText = sms.body;
+        if (smsText == null || smsText.isEmpty) continue;
+
+        // Quick check: skip if sender doesn't look like a bank
+        final bankName = await BankIdentifier.identify(sms.address, smsText);
+        if (bankName == null) continue;
+
+        final hash = sha256.convert(utf8.encode(smsText)).toString();
+        final exists =
+            await RepositoryProvider.transaction.existsBySmsHash(hash);
+        if (exists) continue;
+
+        await _handleSms(smsText, sms.address);
+        processed++;
+      }
+
+      _logger.i('Inbox sync: $processed new bank messages processed');
+    } catch (e) {
+      _logger.e('Error syncing inbox', error: e);
     }
   }
 
   Future<void> _handleSms(String smsText, String? sender) async {
-    try {
-      final bankName = await BankIdentifier.identify(sender, smsText);
-
-      if (bankName == null) {
-        await FailedParseLog.save(smsText, sender, 'no_bank_match');
-        _logger.w('Unknown sender: $sender');
-        return;
-      }
-
-      ParsedBankSms? parsed;
-
-      switch (bankName) {
-        case 'Telebirr':
-          parsed = TelebirrSmsParser.parse(smsText);
-          break;
-        case 'CBE':
-          parsed = CbeSmsParser.parse(smsText);
-          break;
-        case 'Awash':
-          parsed = AwashSmsParser.parse(smsText);
-          break;
-      }
-
-      if (parsed == null) {
-        await FailedParseLog.save(smsText, sender, 'parse_error');
-        _logger.w('Failed to parse $bankName SMS');
-        return;
-      }
-
-      final smsHash =
-          sha256.convert(utf8.encode(smsText)).toString();
-
-      final alreadyExists =
-          await RepositoryProvider.transaction.existsBySmsHash(
-        smsHash,
-      );
-
-      if (alreadyExists) {
-        _logger.i('Duplicate SMS ignored');
-        return;
-      }
-
-      final direction =
-          parsed.direction == TransactionDirection.received
-              ? 'income'
-              : 'expense';
-
-      final transaction = Transaction(
-        direction: direction,
-        amount: parsed.amount,
-        source: bankName.toLowerCase(),
-        rawSmsHash: smsHash,
-        counterpartyMasked: bankName,
-        timestamp: parsed.timestamp,
-      );
-
-      await RepositoryProvider.transaction.save(transaction);
-
-      _logger.i('$bankName transaction saved');
-    } catch (e) {
-      _logger.e(
-        'Error handling SMS',
-        error: e,
-      );
-    }
+    await _handleSmsStatic(smsText, sender, _logger);
   }
 }
