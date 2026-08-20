@@ -43,32 +43,49 @@ class BankIdentifier {
     return prefixes;
   }
 
+  static bool _senderMatches(String? normalizedSender, List<String> senders) {
+    if (normalizedSender == null) return false;
+    for (final knownSender in senders) {
+      if (normalizedSender.endsWith(knownSender) ||
+          knownSender.endsWith(normalizedSender)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static Future<String?> identify(String? sender, String smsText) async {
     await load();
 
     if (_banks == null || _banks!.isEmpty) return null;
 
-    // Normalize sender: strip +, country code prefixes
     final normalizedSender = sender?.replaceAll(RegExp(r'^\+?251'), '');
 
+    // Step 1: find all banks whose sender matches
+    final matchedBanks = <BankInfo>[];
     for (final bank in _banks!) {
-      // Match sender by endsWith (handles +251911234, 2518047, 8047, etc.)
-      if (normalizedSender != null) {
-        for (final knownSender in bank.senders) {
-          if (normalizedSender.endsWith(knownSender) ||
-              knownSender.endsWith(normalizedSender)) {
-            return bank.name;
-          }
-        }
+      if (_senderMatches(normalizedSender, bank.senders)) {
+        matchedBanks.add(bank);
       }
+    }
 
+    // No known sender matched → reject (prevents spam/phishing via keyword)
+    if (matchedBanks.isEmpty) return null;
+
+    // Exactly one sender match → no ambiguity
+    if (matchedBanks.length == 1) return matchedBanks.first.name;
+
+    // Multiple sender matches (shared sender like 8047) → disambiguate by keyword
+    final lowerText = smsText.toLowerCase();
+    for (final bank in matchedBanks) {
       for (final keyword in bank.keywords) {
-        if (smsText.toLowerCase().contains(keyword.toLowerCase())) {
+        if (lowerText.contains(keyword.toLowerCase())) {
           return bank.name;
         }
       }
     }
 
-    return null;
+    // Keywords didn't disambiguate → return first match
+    return matchedBanks.first.name;
   }
 }
