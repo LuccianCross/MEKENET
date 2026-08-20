@@ -6,6 +6,10 @@ class ParsedBankSms {
   final double amount;
   final DateTime? timestamp;
   final double? balanceAfter;
+  final String? transactionId;
+  final String? counterparty;
+  final double? serviceFee;
+  final double? vat;
 
   const ParsedBankSms({
     required this.bankName,
@@ -13,5 +17,9 @@ class ParsedBankSms {
     required this.amount,
     required this.timestamp,
     this.balanceAfter,
+    this.transactionId,
+    this.counterparty,
+    this.serviceFee,
+    this.vat,
   });
 }
