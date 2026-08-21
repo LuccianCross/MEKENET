@@ -5,9 +5,14 @@
 ///   2. Export Report — calls MekenetApiClient.exportReport() and shows
 ///      a formatted bottom sheet with real backend data.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:another_telephony/telephony.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../api_client/mekenet_api_client.dart';
 import '../models/export_report.dart';
@@ -444,10 +449,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Financial Report',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Financial Report',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 20),
+                            onPressed: () => _copyReportToClipboard(context, report),
+                            tooltip: 'Copy to clipboard',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share, size: 20),
+                            onPressed: () => _shareReport(context, report),
+                            tooltip: 'Share report',
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   Text(
                     'Generated: ${report.generatedAt.substring(0, 10)}',
@@ -472,6 +496,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: '${report.currency} ${report.netBalance.toStringAsFixed(2)}',
                     color: report.netBalance >= 0 ? Colors.green : Colors.red,
                     bold: true,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Export buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _shareReport(context, report),
+                          icon: const Icon(Icons.share),
+                          label: const Text('Share'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _saveCsvToFile(context, report),
+                          icon: const Icon(Icons.save_alt),
+                          label: const Text('Save CSV'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -519,6 +565,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  String _generateReportText(ExportReport report) {
+    final buffer = StringBuffer();
+    buffer.writeln('=== Mekenet Financial Report ===');
+    buffer.writeln('Generated: ${report.generatedAt.substring(0, 10)}');
+    buffer.writeln('');
+    buffer.writeln('--- Summary ---');
+    buffer.writeln('Total Income: ${report.currency} ${report.totalIncome.toStringAsFixed(2)}');
+    buffer.writeln('Total Expense: ${report.currency} ${report.totalExpense.toStringAsFixed(2)}');
+    buffer.writeln('Net Balance: ${report.currency} ${report.netBalance.toStringAsFixed(2)}');
+    buffer.writeln('');
+    buffer.writeln('--- Transactions (${report.transactionCount}) ---');
+    for (final tx in report.transactions) {
+      buffer.writeln('${tx.date} | ${tx.type.toUpperCase()} | ${tx.currency} ${tx.amount.toStringAsFixed(2)} | ${tx.description} | ${tx.category}');
+    }
+    return buffer.toString();
+  }
+
+  String _generateCsv(ExportReport report) {
+    final buffer = StringBuffer();
+    buffer.writeln('Date,Type,Amount,Currency,Description,Category');
+    for (final tx in report.transactions) {
+      buffer.writeln('${tx.date},${tx.type},${tx.amount.toStringAsFixed(2)},${tx.currency},"${tx.description}",${tx.category}');
+    }
+    return buffer.toString();
+  }
+
+  void _copyReportToClipboard(BuildContext context, ExportReport report) {
+    final text = _generateReportText(report);
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Report copied to clipboard'),
+        backgroundColor: Color(0xFF0A8E48),
+      ),
+    );
+  }
+
+  void _shareReport(BuildContext context, ExportReport report) {
+    final text = _generateReportText(report);
+    Share.share(text, subject: 'Mekenet Financial Report');
+  }
+
+  Future<void> _saveCsvToFile(BuildContext context, ExportReport report) async {
+    try {
+      final csv = _generateCsv(report);
+      final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().toIso8601String().substring(0, 10);
+      final file = File('${directory.path}/mekenet_report_$timestamp.csv');
+      await file.writeAsString(csv);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to ${file.path.split('/').last}'),
+            backgroundColor: const Color(0xFF0A8E48),
+            action: SnackBarAction(
+              label: 'Share',
+              textColor: Colors.white,
+              onPressed: () => Share.shareXFiles([XFile(file.path)], subject: 'Mekenet Report'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving file: $e')),
+        );
+      }
+    }
   }
 
   String _fmt(DateTime d) =>

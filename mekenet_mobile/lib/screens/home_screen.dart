@@ -14,13 +14,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  double _totalIncome = 0;
-  double _totalExpenses = 0;
+  double _todayIncome = 0;
+  double _todayExpenses = 0;
+  double _weekIncome = 0;
+  double _weekExpenses = 0;
+  double _monthIncome = 0;
+  double _monthExpenses = 0;
   double _totalOwed = 0;
   List<Transaction> _recentTransactions = [];
   bool _isLoading = true;
   String? _error;
   StreamSubscription<void>? _smsSub;
+  int _selectedPeriod = 0; // 0=Today, 1=Week, 2=Month
 
   @override
   void initState() {
@@ -46,21 +51,35 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
+      final startOfWeek = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: now.weekday - 1));
+      final startOfMonth = DateTime(now.year, now.month, 1);
 
-      final income = await RepositoryProvider.transaction
-          .getTotalIncome(startOfDay, now);
-      final expenses = await RepositoryProvider.transaction
-          .getTotalExpenses(startOfDay, now);
-      final debts = await RepositoryProvider.debt.getOpen();
-      final owed = debts.fold<double>(0, (sum, d) => sum + d.amount);
-      final recent = await RepositoryProvider.transaction.getThisWeek();
+      // Fetch all periods in parallel
+      final results = await Future.wait([
+        RepositoryProvider.transaction.getTotalIncome(startOfDay, now),
+        RepositoryProvider.transaction.getTotalExpenses(startOfDay, now),
+        RepositoryProvider.transaction.getTotalIncome(startOfWeek, now),
+        RepositoryProvider.transaction.getTotalExpenses(startOfWeek, now),
+        RepositoryProvider.transaction.getTotalIncome(startOfMonth, now),
+        RepositoryProvider.transaction.getTotalExpenses(startOfMonth, now),
+        RepositoryProvider.debt.getOpen(),
+        RepositoryProvider.transaction.getThisWeek(),
+      ]);
+
+      final debts = results[6] as List;
+      final owed = debts.fold<double>(0, (sum, d) => sum + (d as dynamic).amount);
 
       if (mounted) {
         setState(() {
-          _totalIncome = income;
-          _totalExpenses = expenses;
+          _todayIncome = results[0] as double;
+          _todayExpenses = results[1] as double;
+          _weekIncome = results[2] as double;
+          _weekExpenses = results[3] as double;
+          _monthIncome = results[4] as double;
+          _monthExpenses = results[5] as double;
           _totalOwed = owed;
-          _recentTransactions = recent;
+          _recentTransactions = results[7] as List<Transaction>;
           _isLoading = false;
         });
       }
@@ -138,14 +157,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         _buildSummaryCard(
                           'INCOME',
-                          'Br${_totalIncome.toStringAsFixed(0)}',
+                          'Br${_selectedIncome.toStringAsFixed(0)}',
                           const Color(0xFF0A8E48),
                           Icons.arrow_upward,
                         ),
                         const SizedBox(width: 10),
                         _buildSummaryCard(
                           'EXPENSES',
-                          'Br${_totalExpenses.toStringAsFixed(0)}',
+                          'Br${_selectedExpenses.toStringAsFixed(0)}',
                           const Color(0xFFE53935),
                           Icons.arrow_downward,
                         ),
@@ -241,16 +260,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  double get _selectedIncome {
+    switch (_selectedPeriod) {
+      case 0: return _todayIncome;
+      case 1: return _weekIncome;
+      case 2: return _monthIncome;
+      default: return _todayIncome;
+    }
+  }
+
+  double get _selectedExpenses {
+    switch (_selectedPeriod) {
+      case 0: return _todayExpenses;
+      case 1: return _weekExpenses;
+      case 2: return _monthExpenses;
+      default: return _todayExpenses;
+    }
+  }
+
+  String get _periodLabel {
+    switch (_selectedPeriod) {
+      case 0: return 'Today';
+      case 1: return 'This Week';
+      case 2: return 'This Month';
+      default: return 'Today';
+    }
+  }
+
   Widget _buildProfitCard() {
-    final profit = _totalIncome - _totalExpenses;
+    final income = _selectedIncome;
+    final expenses = _selectedExpenses;
+    final profit = income - expenses;
     final isProfit = profit >= 0;
     final profitColor = isProfit ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
     final profitIcon = isProfit ? Icons.trending_up : Icons.trending_down;
-    final profitLabel = isProfit ? 'Today\'s Profit' : 'Today\'s Loss';
+    final profitLabel = isProfit ? '$_periodLabel Profit' : '$_periodLabel Loss';
 
-    final total = _totalIncome + _totalExpenses;
-    final incomePercent = total > 0 ? _totalIncome / total : 0.0;
-    final expensePercent = total > 0 ? _totalExpenses / total : 0.0;
+    final total = income + expenses;
+    final incomePercent = total > 0 ? income / total : 0.0;
+    final expensePercent = total > 0 ? expenses / total : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -338,9 +386,20 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildProfitDetail('Income', _totalIncome, Icons.arrow_upward),
+              _buildProfitDetail('Income', income, Icons.arrow_upward),
               const SizedBox(width: 24),
-              _buildProfitDetail('Expenses', _totalExpenses, Icons.arrow_downward),
+              _buildProfitDetail('Expenses', expenses, Icons.arrow_downward),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Period selector
+          Row(
+            children: [
+              _buildPeriodChip(0, 'Today'),
+              const SizedBox(width: 6),
+              _buildPeriodChip(1, 'Week'),
+              const SizedBox(width: 6),
+              _buildPeriodChip(2, 'Month'),
             ],
           ),
         ],
@@ -361,6 +420,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPeriodChip(int index, String label) {
+    final isSelected = _selectedPeriod == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPeriod = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: isSelected
+              ? Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1)
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: Colors.white.withValues(alpha: isSelected ? 1.0 : 0.7),
+          ),
+        ),
+      ),
     );
   }
 
