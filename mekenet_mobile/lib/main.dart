@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -116,6 +118,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  StreamSubscription<void>? _smsSub;
 
   late final List<Widget> _screens;
 
@@ -132,6 +135,25 @@ class _MainScreenState extends State<MainScreen> {
 
     // Initialize SMS listener AFTER UI is ready (Activity exists for permission dialog)
     SmsListener.instance.initialize();
+
+    // Show notification when new transaction is detected
+    _smsSub = SmsListener.instance.onTransactionAdded.listen((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('New transaction recorded'),
+            backgroundColor: Color(0xFF0A8E48),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _smsSub?.cancel();
+    super.dispose();
   }
 
   @override
