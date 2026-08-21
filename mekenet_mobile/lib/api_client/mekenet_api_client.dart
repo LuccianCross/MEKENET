@@ -63,10 +63,12 @@ class MekenetApiClient {
       'id': tx.id,
       'type': tx.direction,                          // direction → type
       'amount': tx.amount,
-      'description': tx.counterpartyMasked,          // counterpartyMasked → description
+      'description': tx.source,                       // FIXED: use source (bank name) as description
       'date': _formatDate(tx.timestamp),             // DateTime → YYYY-MM-DD
       'category': tx.category ?? 'uncategorized',
       'currency': 'ETB',
+      'source': tx.source,                           // NEW: send source field
+      'raw_sms_hash': tx.rawSmsHash,                 // NEW: send SMS hash for deduplication
     });
 
     try {
