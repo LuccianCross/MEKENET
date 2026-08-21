@@ -25,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Transaction> _recentTransactions = [];
   List<MapEntry<DateTime, double>> _dailyIncome = [];
   List<MapEntry<DateTime, double>> _dailyExpenses = [];
+  List<MapEntry<String, double>> _incomeByCategory = [];
   bool _isLoading = true;
   String? _error;
   StreamSubscription<void>? _smsSub;
@@ -58,6 +59,13 @@ class _HomeScreenState extends State<HomeScreen> {
           .subtract(Duration(days: now.weekday - 1));
       final startOfMonth = DateTime(now.year, now.month, 1);
 
+      // Determine start for breakdown based on selected period
+      final startForPeriod = _selectedPeriod == 0
+          ? startOfDay
+          : _selectedPeriod == 1
+              ? startOfWeek
+              : startOfMonth;
+
       // Fetch all periods in parallel
       final results = await Future.wait([
         RepositoryProvider.transaction.getTotalIncome(startOfDay, now),
@@ -80,6 +88,10 @@ class _HomeScreenState extends State<HomeScreen> {
         sevenDaysAgo,
         now7.add(const Duration(hours: 23, minutes: 59)),
       );
+
+      // Load income category breakdown for the selected period
+      final incomeBreakdown = await RepositoryProvider.transaction
+          .getCategoryBreakdown(startForPeriod, now, 'income');
 
       final dailyIncome = <DateTime, double>{};
       final dailyExpenses = <DateTime, double>{};
@@ -111,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _recentTransactions = results[7] as List<Transaction>;
           _dailyIncome = dailyIncome.entries.toList();
           _dailyExpenses = dailyExpenses.entries.toList();
+          _incomeByCategory = incomeBreakdown;
           _isLoading = false;
         });
       }
@@ -211,6 +224,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 20),
                     _buildChart(),
                     const SizedBox(height: 20),
+                    if (_incomeByCategory.isNotEmpty) ...[
+                      _buildIncomeCategoryBreakdown(),
+                      const SizedBox(height: 20),
+                    ],
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -652,6 +669,71 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  static const _categoryColors = [
+    Color(0xFF0A8E48),
+    Color(0xFF1E88E5),
+    Color(0xFFFF8F00),
+    Color(0xFFE53935),
+    Color(0xFF8E24AA),
+    Color(0xFF00ACC1),
+    Color(0xFF6D4C41),
+  ];
+
+  Widget _buildIncomeCategoryBreakdown() {
+    final total = _incomeByCategory.fold<double>(0, (s, e) => s + e.value);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.08),
+            spreadRadius: 1,
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            AppLocalizations.of(context).t('incomeByCategory'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          ..._incomeByCategory.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            final color = _categoryColors[idx % _categoryColors.length];
+            final pct = total > 0 ? (item.value / total * 100).toStringAsFixed(0) : '0';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(width: 12, height: 12, color: color),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(item.key, style: const TextStyle(fontSize: 13)),
+                  ),
+                  Text(
+                    'Br${item.value.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$pct%',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

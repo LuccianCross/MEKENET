@@ -19,6 +19,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   String _selectedCategory = 'Other';
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+  bool _isIncome = false;
   List<String> _categories = [];
 
   final _repo = SqliteTransactionRepository();
@@ -30,14 +31,16 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   }
 
   Future<void> _loadCategories() async {
-    final cats = await CategoryService.instance.getCategories();
-    final mostUsed = await CategoryService.instance.getMostUsedCategory();
+    final dir = _isIncome ? 'income' : 'expense';
+    final cats = await CategoryService.instance.getCategories(direction: dir);
+    final mostUsed =
+        await CategoryService.instance.getMostUsedCategory(direction: dir);
     if (mounted) {
       setState(() {
         _categories = cats;
-        if (mostUsed != null && cats.contains(mostUsed)) {
-          _selectedCategory = mostUsed;
-        }
+        _selectedCategory = (mostUsed != null && cats.contains(mostUsed))
+            ? mostUsed
+            : cats.first;
       });
     }
   }
@@ -47,7 +50,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Add Expense'),
+        title: Text(_isIncome ? 'Add Income' : 'Add Expense'),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -57,31 +60,86 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Income / Expense toggle ────────────────────────────────
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _switchDirection(false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: !_isIncome
+                              ? const Color(0xFFE53935)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Expense',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: !_isIncome ? Colors.white : Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _switchDirection(true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _isIncome
+                              ? const Color(0xFF0A8E48)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Income',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: _isIncome ? Colors.white : Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Amount ──────────────────────────────────────────────
             const Text(
               'Amount (Br)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                hintText: 'Enter expense amount',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.money),
+              decoration: InputDecoration(
+                hintText: _isIncome ? 'Enter income amount' : 'Enter expense amount',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.money),
               ),
             ),
             const SizedBox(height: 20),
 
+            // ── Category chips ─────────────────────────────────────
             const Text(
               'Category',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -91,12 +149,10 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 return ChoiceChip(
                   label: Text(category),
                   selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedCategory = category;
-                    });
-                  },
-                  selectedColor: const Color(0xFF0A8E48),
+                  onSelected: (_) => setState(() => _selectedCategory = category),
+                  selectedColor: _isIncome
+                      ? const Color(0xFF0A8E48)
+                      : const Color(0xFFE53935),
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : Colors.black,
                   ),
@@ -105,12 +161,10 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             ),
             const SizedBox(height: 20),
 
+            // ── Date ────────────────────────────────────────────────
             const Text(
               'Date',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             ListTile(
@@ -130,39 +184,37 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                   firstDate: DateTime(2020),
                   lastDate: DateTime.now(),
                 );
-                if (date != null) {
-                  setState(() {
-                    _selectedDate = date;
-                  });
-                }
+                if (date != null) setState(() => _selectedDate = date);
               },
             ),
             const SizedBox(height: 20),
 
+            // ── Note ────────────────────────────────────────────────
             const Text(
               'Note (Optional)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Weekly stock refill',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: _isIncome
+                    ? 'e.g. Cash sale to Amina'
+                    : 'e.g. Weekly stock refill',
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
 
+            // ── Save button ─────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isSaving ? null : _saveExpense,
+                onPressed: _isSaving ? null : _saveTransaction,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0A8E48),
+                  backgroundColor:
+                      _isIncome ? const Color(0xFF0A8E48) : const Color(0xFFE53935),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -177,9 +229,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Save Expense',
-                        style: TextStyle(fontSize: 16),
+                    : Text(
+                        _isIncome ? 'Save Income' : 'Save Expense',
+                        style: const TextStyle(fontSize: 16),
                       ),
               ),
             ),
@@ -189,11 +241,13 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Save logic
-  // -----------------------------------------------------------------------
+  void _switchDirection(bool toIncome) {
+    if (_isIncome == toIncome) return;
+    setState(() => _isIncome = toIncome);
+    _loadCategories();
+  }
 
-  Future<void> _saveExpense() async {
+  Future<void> _saveTransaction() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -214,33 +268,28 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
 
     try {
       final note = _noteController.text.trim();
+      final direction = _isIncome ? 'income' : 'expense';
 
-      // Build the Transaction using the real model
       final tx = Transaction(
         id: const Uuid().v4(),
-        direction: 'expense',
+        direction: direction,
         amount: amount,
         source: 'manual',
         counterpartyMasked: note.isNotEmpty ? note : _selectedCategory,
-        category: _selectedCategory.toLowerCase(),
+        category: _selectedCategory,
         timestamp: _selectedDate,
         synced: false,
       );
 
-      // 1. Save locally first — always works even offline
       await _repo.save(tx);
-
-      // 2. Record category usage for smart pre-fill
-      await CategoryService.instance.recordUsage(_selectedCategory);
-
-      // 3. Attempt backend sync (silently fails if offline)
+      await CategoryService.instance.recordUsage(_selectedCategory, direction: direction);
       await SyncService.instance.syncOne(tx);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Expense saved ✓'),
-            backgroundColor: Color(0xFF0A8E48),
+          SnackBar(
+            content: Text('${_isIncome ? 'Income' : 'Expense'} saved'),
+            backgroundColor: const Color(0xFF0A8E48),
           ),
         );
         _amountController.clear();
@@ -250,11 +299,11 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving expense: $e')),
+          SnackBar(content: Text('Error saving: $e')),
         );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
-}
+}

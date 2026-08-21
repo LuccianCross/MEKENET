@@ -757,8 +757,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _showCategoryManager(BuildContext context) async {
     final catService = CategoryService.instance;
-    final initialCategories = await catService.getCategories();
-    final initialUsage = await catService.getUsageStats();
+    String direction = 'expense';
 
     if (!context.mounted) return;
 
@@ -773,7 +772,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (ctx, setModalState) {
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.6,
+              initialChildSize: 0.65,
               maxChildSize: 0.9,
               builder: (_, controller) {
                 return Padding(
@@ -792,43 +791,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Manage Categories',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle, color: Color(0xFF0A8E48)),
-                            onPressed: () async {
-                              final added = await _addCategory(ctx, catService);
-                              if (added) {
-                                final updated = await catService.getCategories();
-                                setModalState(() {});
-                              }
-                            },
-                          ),
-                        ],
+                      const Text(
+                        'Manage Categories',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      // Direction toggle
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setModalState(() => direction = 'expense'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: direction == 'expense' ? const Color(0xFFE53935) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text('Expense', style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: direction == 'expense' ? Colors.white : Colors.grey[600],
+                                    )),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setModalState(() => direction = 'income'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: direction == 'income' ? const Color(0xFF0A8E48) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text('Income', style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: direction == 'income' ? Colors.white : Colors.grey[600],
+                                    )),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Tap + to add custom categories',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.add_circle, color: Color(0xFF0A8E48)),
+                          onPressed: () async {
+                            final added = await _addCategory(ctx, catService, direction: direction);
+                            if (added) setModalState(() {});
+                          },
+                        ),
                       ),
-                      const SizedBox(height: 16),
                       FutureBuilder<List<String>>(
-                        future: catService.getCategories(),
+                        future: catService.getCategories(direction: direction),
                         builder: (snap, catList) {
                           final cats = catList.data ?? [];
                           return FutureBuilder<Map<String, int>>(
                             future: catService.getUsageStats(),
                             builder: (snap2, usageMap) {
                               final usage = usageMap.data ?? {};
+                              final defaults = direction == 'income'
+                                  ? CategoryService.defaultIncomeCategories
+                                  : CategoryService.defaultExpenseCategories;
                               return Column(
                                 children: cats.map((cat) {
-                                  final count = usage[cat] ?? 0;
-                                  final isDefault = CategoryService.defaultCategories.contains(cat);
+                                  final count = usage['$direction:$cat'] ?? 0;
+                                  final isDefault = defaults.contains(cat);
                                   return ListTile(
                                     contentPadding: EdgeInsets.zero,
                                     leading: CircleAvatar(
@@ -845,7 +885,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         : IconButton(
                                             icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
                                             onPressed: () async {
-                                              await catService.removeCategory(cat);
+                                              await catService.removeCategory(cat, direction: direction);
                                               setModalState(() {});
                                             },
                                           ),
@@ -867,18 +907,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<bool> _addCategory(BuildContext ctx, CategoryService catService) async {
+  Future<bool> _addCategory(BuildContext ctx, CategoryService catService, {String direction = 'expense'}) async {
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: ctx,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Add Category'),
+        title: Text('Add ${direction == 'income' ? 'Income' : 'Expense'} Category'),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Delivery',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: direction == 'income' ? 'e.g. Commission' : 'e.g. Delivery',
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -895,7 +935,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (result != null && result.isNotEmpty) {
-      await catService.addCategory(result);
+      await catService.addCategory(result, direction: direction);
       return true;
     }
     return false;

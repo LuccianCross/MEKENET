@@ -91,13 +91,10 @@ Future<void> _handleSmsStatic(
     // Use parsed counterparty if available, otherwise fall back to bank name
     final counterparty = parsed.counterparty ?? bankName;
 
-    // Auto-categorize: look up previous transactions from same counterparty
-    String category = 'other';
+    // Auto-categorize: direction-aware counterparty lookup
     final learnedCategory = await RepositoryProvider.transaction
-        .getCategoryByCounterparty(counterparty);
-    if (learnedCategory != null) {
-      category = learnedCategory;
-    }
+        .getCategoryByCounterparty(counterparty, direction: direction);
+    final category = learnedCategory ?? (direction == 'income' ? 'Sales' : 'other');
 
     final transaction = Transaction(
       direction: direction,

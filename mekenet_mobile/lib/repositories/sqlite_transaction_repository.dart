@@ -248,11 +248,29 @@ class SqliteTransactionRepository
   }
 
   @override
-  Future<String?> getCategoryByCounterparty(String counterparty) async {
+  Future<String?> getCategoryByCounterparty(String counterparty,
+      {String? direction}) async {
     final db = await _db;
 
-    final rows = await db.rawQuery(
-      '''
+    String query;
+    List<dynamic> args;
+
+    if (direction != null) {
+      query = '''
+      SELECT category, COUNT(*) AS cnt
+      FROM transactions
+      WHERE counterparty_masked = ?
+        AND direction = ?
+        AND category IS NOT NULL
+        AND category != 'other'
+        AND category != 'uncategorized'
+      GROUP BY category
+      ORDER BY cnt DESC
+      LIMIT 1
+      ''';
+      args = [counterparty, direction];
+    } else {
+      query = '''
       SELECT category, COUNT(*) AS cnt
       FROM transactions
       WHERE counterparty_masked = ?
@@ -262,11 +280,39 @@ class SqliteTransactionRepository
       GROUP BY category
       ORDER BY cnt DESC
       LIMIT 1
-      ''',
-      [counterparty],
-    );
+      ''';
+      args = [counterparty];
+    }
+
+    final rows = await db.rawQuery(query, args);
 
     if (rows.isEmpty) return null;
     return rows.first['category'] as String;
+  }
+
+  @override
+  Future<List<MapEntry<String, double>>> getCategoryBreakdown(
+      DateTime start, DateTime end, String direction) async {
+    final db = await _db;
+    final rows = await db.rawQuery(
+      '''
+      SELECT COALESCE(category, 'Other') AS cat, SUM(amount) AS total
+      FROM transactions
+      WHERE direction = ?
+        AND timestamp >= ?
+        AND timestamp <= ?
+      GROUP BY cat
+      ORDER BY total DESC
+      ''',
+      [
+        direction,
+        start.millisecondsSinceEpoch,
+        end.millisecondsSinceEpoch,
+      ],
+    );
+
+    return rows
+        .map((r) => MapEntry(r['cat'] as String, (r['total'] as num).toDouble()))
+        .toList();
   }
 }

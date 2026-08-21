@@ -43,6 +43,11 @@ abstract class TransactionRepository {
   // Parser related
   Future<List<Transaction>> getUnmatched();
 
-  /// Look up the most common category for a given counterparty name.
-  Future<String?> getCategoryByCounterparty(String counterparty);
+  /// Look up the most common category for a given counterparty + direction.
+  Future<String?> getCategoryByCounterparty(String counterparty,
+      {String direction});
+
+  /// Returns category breakdown for a direction within a date range.
+  Future<List<MapEntry<String, double>>> getCategoryBreakdown(
+      DateTime start, DateTime end, String direction);
 }

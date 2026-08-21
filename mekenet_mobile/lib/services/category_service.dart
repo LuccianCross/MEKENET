@@ -1,11 +1,6 @@
 /// lib/services/category_service.dart
 ///
-/// Manages expense categories and tracks usage for smart pre-filling.
-///
-/// Responsibilities:
-///   - Store/load custom categories
-///   - Track how often each category is used
-///   - Suggest the most-used category when adding an expense
+/// Manages income and expense categories, tracks usage for smart pre-filling.
 
 import 'dart:convert';
 
@@ -13,20 +8,16 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CategoryService {
-  // -------------------------------------------------------------------------
-  // Singleton
-  // -------------------------------------------------------------------------
   CategoryService._();
   static final CategoryService instance = CategoryService._();
 
   static const _categoriesKey = 'custom_categories';
+  static const _incomeCategoriesKey = 'custom_income_categories';
   static const _usageKey = 'category_usage';
   static final _log = Logger();
 
-  // -------------------------------------------------------------------------
-  // Default business categories
-  // -------------------------------------------------------------------------
-  static const List<String> defaultCategories = [
+  // Default expense categories
+  static const List<String> defaultExpenseCategories = [
     'Inventory',
     'Transport',
     'Rent',
@@ -39,64 +30,87 @@ class CategoryService {
     'Other',
   ];
 
-  // -------------------------------------------------------------------------
-  // Public API
-  // -------------------------------------------------------------------------
+  // Default income categories
+  static const List<String> defaultIncomeCategories = [
+    'Sales',
+    'Customer Payment',
+    'Transfer In',
+    'Loan Received',
+    'Other Income',
+  ];
 
-  /// Returns all categories (defaults + custom).
-  Future<List<String>> getCategories() async {
+  // Backward-compatible getter
+  List<String> get defaultCategories => defaultExpenseCategories;
+
+  Future<List<String>> getCategories({String direction = 'expense'}) async {
+    final key =
+        direction == 'income' ? _incomeCategoriesKey : _categoriesKey;
+    final defaults =
+        direction == 'income' ? defaultIncomeCategories : defaultExpenseCategories;
+
     final prefs = await SharedPreferences.getInstance();
-    final customJson = prefs.getString(_categoriesKey);
+    final customJson = prefs.getString(key);
     final custom = customJson != null
         ? List<String>.from(jsonDecode(customJson) as List)
         : [];
-    return [...defaultCategories, ...custom];
+    return [...defaults, ...custom];
   }
 
-  /// Adds a custom category.
-  Future<void> addCategory(String name) async {
+  Future<void> addCategory(String name,
+      {String direction = 'expense'}) async {
+    final key =
+        direction == 'income' ? _incomeCategoriesKey : _categoriesKey;
+    final defaults =
+        direction == 'income' ? defaultIncomeCategories : defaultExpenseCategories;
+
     final prefs = await SharedPreferences.getInstance();
-    final customJson = prefs.getString(_categoriesKey);
+    final customJson = prefs.getString(key);
     final custom = customJson != null
         ? List<String>.from(jsonDecode(customJson) as List)
         : [];
 
-    if (custom.contains(name) || defaultCategories.contains(name)) return;
+    if (custom.contains(name) || defaults.contains(name)) return;
 
     custom.add(name);
-    await prefs.setString(_categoriesKey, jsonEncode(custom));
-    _log.i('[Category] Added custom category: $name');
+    await prefs.setString(key, jsonEncode(custom));
+    _log.i('[Category] Added custom $direction category: $name');
   }
 
-  /// Removes a custom category (cannot remove defaults).
-  Future<void> removeCategory(String name) async {
-    if (defaultCategories.contains(name)) return;
+  Future<void> removeCategory(String name,
+      {String direction = 'expense'}) async {
+    final defaults =
+        direction == 'income' ? defaultIncomeCategories : defaultExpenseCategories;
+    if (defaults.contains(name)) return;
+
+    final key =
+        direction == 'income' ? _incomeCategoriesKey : _categoriesKey;
 
     final prefs = await SharedPreferences.getInstance();
-    final customJson = prefs.getString(_categoriesKey);
+    final customJson = prefs.getString(key);
     final custom = customJson != null
         ? List<String>.from(jsonDecode(customJson) as List)
         : [];
 
     custom.remove(name);
-    await prefs.setString(_categoriesKey, jsonEncode(custom));
-    _log.i('[Category] Removed custom category: $name');
+    await prefs.setString(key, jsonEncode(custom));
+    _log.i('[Category] Removed custom $direction category: $name');
   }
 
-  /// Records that a category was used.
-  Future<void> recordUsage(String category) async {
+  /// Records usage with direction-aware key.
+  Future<void> recordUsage(String category, {String direction = 'expense'}) async {
     final prefs = await SharedPreferences.getInstance();
     final usageJson = prefs.getString(_usageKey);
     final usage = usageJson != null
         ? Map<String, int>.from(jsonDecode(usageJson) as Map)
         : {};
 
-    usage[category] = (usage[category] ?? 0) + 1;
+    final key = '$direction:$category';
+    usage[key] = (usage[key] ?? 0) + 1;
     await prefs.setString(_usageKey, jsonEncode(usage));
   }
 
-  /// Returns the most-used category, or null if no usage data.
-  Future<String?> getMostUsedCategory() async {
+  /// Returns the most-used category for the given direction.
+  Future<String?> getMostUsedCategory({String direction = 'expense'}) async {
     final prefs = await SharedPreferences.getInstance();
     final usageJson = prefs.getString(_usageKey);
     if (usageJson == null) return null;
@@ -106,17 +120,17 @@ class CategoryService {
 
     String? topCategory;
     int topCount = 0;
-    usage.forEach((cat, count) {
-      if (count > topCount) {
+    final prefix = '$direction:';
+    usage.forEach((key, count) {
+      if (key.startsWith(prefix) && count > topCount) {
         topCount = count;
-        topCategory = cat;
+        topCategory = key.substring(prefix.length);
       }
     });
 
     return topCategory;
   }
 
-  /// Returns usage counts for all categories.
   Future<Map<String, int>> getUsageStats() async {
     final prefs = await SharedPreferences.getInstance();
     final usageJson = prefs.getString(_usageKey);
@@ -125,7 +139,6 @@ class CategoryService {
     return Map<String, int>.from(jsonDecode(usageJson) as Map);
   }
 
-  /// Clears all usage data.
   Future<void> clearUsage() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_usageKey);

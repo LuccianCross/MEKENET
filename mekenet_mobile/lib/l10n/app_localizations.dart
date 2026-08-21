@@ -70,6 +70,7 @@ class AppLocalizations {
       'dataStaysOnDevice': 'Your data stays on your device',
       'dataStaysOnDeviceDesc': 'Your financial records are 100% private. All SMS processing happens securely on your phone without sending details to any server.',
       'onboardingSubtitle': 'Your daily money record, automatically',
+      'incomeByCategory': 'Income by Category',
     },
     'am': {
       'appTitle': 'መቀነት',
@@ -129,6 +130,7 @@ class AppLocalizations {
       'dataStaysOnDevice': 'መረጃዎ በመሣሪያ ላይ ይ ይወጣል',
       'dataStaysOnDeviceDesc': 'የገንዘብ መዝገቢዎችዎ 100% የግል ናቸው። ሁሉም SMS ሂደት በመሣሪያዎ ላይ በደህንነት ይሠራል።',
       'onboardingSubtitle': 'የዕለት ገንዘብ መዝገቢዎ፣ በራስ-ሰር',
+      'incomeByCategory': 'ገቢ በምድር መሰረት',
     },
   };
 
