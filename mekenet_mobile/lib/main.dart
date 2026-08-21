@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database/database_helper.dart';
 import 'l10n/app_localizations.dart';
@@ -16,6 +17,8 @@ import 'services/sync_service.dart';
 import 'services/sms/sms_listener.dart';
 import 'widgets/bottom_nav_bar.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -23,16 +26,46 @@ Future<void> main() async {
 
   await SyncService.instance.initialize();
 
-  runApp(const MyApp());
+  // Load saved language
+  final prefs = await SharedPreferences.getInstance();
+  final savedLang = prefs.getString('app_language') ?? 'en';
+
+  runApp(MyMekenet(initialLocale: savedLang));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyMekenet extends StatefulWidget {
+  final String initialLocale;
+
+  const MyMekenet({super.key, required this.initialLocale});
+
+  static MyMekenetState? of(BuildContext context) =>
+      context.findAncestorStateOfType<MyMekenetState>();
+
+  @override
+  State<MyMekenet> createState() => MyMekenetState();
+}
+
+class MyMekenetState extends State<MyMekenet> {
+  late Locale _locale;
+
+  @override
+  void initState() {
+    super.initState();
+    _locale = Locale(widget.initialLocale);
+  }
+
+  void setLocale(String langCode) {
+    setState(() {
+      _locale = Locale(langCode);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Mekenet',
+      locale: _locale,
       theme: ThemeData(
         primaryColor: const Color(0xFF0A8E48),
         colorScheme: ColorScheme.fromSeed(

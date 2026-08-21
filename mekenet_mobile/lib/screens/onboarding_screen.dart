@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/app_localizations.dart';
+import '../main.dart';
 import 'pin_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -12,24 +15,29 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  String _selectedLang = 'en';
 
   final List<_OnboardingPage> _pages = [
     _OnboardingPage(
-      title: 'My Money Record',
-      subtitle: 'Your daily money record, automatically',
+      titleKey: 'chooseLanguage',
+      subtitleKey: 'chooseLanguageDesc',
+      icon: Icons.language,
+      isLanguageChoice: true,
+    ),
+    _OnboardingPage(
+      titleKey: 'myMoneyRecord',
+      subtitleKey: 'onboardingSubtitle',
       icon: Icons.account_balance_wallet,
     ),
     _OnboardingPage(
-      title: 'Allow access to SMS?',
-      subtitle:
-          'We read only bank payment messages to automatically log your sales and business expenses. We ignore personal chats.',
+      titleKey: 'allowSmsAccess',
+      subtitleKey: 'allowSmsAccessDesc',
       icon: Icons.sms,
       isPermission: true,
     ),
     _OnboardingPage(
-      title: 'Your data stays on your device',
-      subtitle:
-          'Your financial records are 100% private. All SMS processing happens securely on your phone without sending details to any server.',
+      titleKey: 'dataStaysOnDevice',
+      subtitleKey: 'dataStaysOnDeviceDesc',
       icon: Icons.shield,
     ),
   ];
@@ -38,6 +46,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveLanguageAndProceed() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_language', _selectedLang);
+    if (mounted) {
+      // Rebuild with new locale
+      MyMekenet.of(context)?.setLocale(_selectedLang);
+      _goToPin();
+    }
   }
 
   @override
@@ -81,7 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   if (_currentPage == _pages.length - 1)
                     ElevatedButton(
-                      onPressed: _goToPin,
+                      onPressed: _saveLanguageAndProceed,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: const Color(0xFF0A8E48),
@@ -94,9 +112,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Get Started',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      child: Text(
+                        AppLocalizations.of(context).t('getStarted'),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     )
                   else
@@ -114,7 +132,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             foregroundColor:
                                 Colors.white.withValues(alpha: 0.7),
                           ),
-                          child: const Text('Skip'),
+                          child: Text(AppLocalizations.of(context).t('skip')),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -136,7 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text('Next'),
+                          child: Text(AppLocalizations.of(context).t('next')),
                         ),
                       ],
                     ),
@@ -157,6 +175,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildPage(_OnboardingPage page) {
+    if (page.isLanguageChoice) {
+      return _buildLanguagePage();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -172,7 +193,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            page.title,
+            AppLocalizations.of(context).t(page.titleKey),
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -182,7 +203,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            page.subtitle,
+            AppLocalizations.of(context).t(page.subtitleKey),
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withValues(alpha: 0.85),
@@ -198,9 +219,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'We\'ll never share your data',
-                style: TextStyle(
+              child: Text(
+                AppLocalizations.of(context).t('neverShare'),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -212,18 +233,109 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
+  Widget _buildLanguagePage() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.language, size: 56, color: Colors.white),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            AppLocalizations.of(context).t('chooseLanguage'),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            AppLocalizations.of(context).t('chooseLanguageDesc'),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.85),
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _buildLanguageOption('en', 'English', 'English'),
+          const SizedBox(height: 12),
+          _buildLanguageOption('am', 'አማርኛ', 'Amharic'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(String code, String label, String subtitle) {
+    final isSelected = _selectedLang == code;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedLang = code),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected
+              ? Border.all(color: Colors.white, width: 2)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: isSelected ? const Color(0xFF0A8E48) : Colors.white,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? const Color(0xFF0A8E48) : Colors.white,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 14,
+                color: isSelected
+                    ? const Color(0xFF0A8E48).withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _OnboardingPage {
-  final String title;
-  final String subtitle;
+  final String titleKey;
+  final String subtitleKey;
   final IconData icon;
   final bool isPermission;
+  final bool isLanguageChoice;
 
   const _OnboardingPage({
-    required this.title,
-    required this.subtitle,
+    required this.titleKey,
+    required this.subtitleKey,
     required this.icon,
     this.isPermission = false,
+    this.isLanguageChoice = false,
   });
 }

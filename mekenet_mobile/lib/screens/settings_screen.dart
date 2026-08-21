@@ -5,10 +5,13 @@
 ///   2. Export Report — calls MekenetApiClient.exportReport() and shows
 ///      a formatted bottom sheet with real backend data.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:crypto/crypto.dart';
 import 'package:another_telephony/telephony.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
@@ -268,6 +271,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text('Version'),
                     subtitle: Text('Mekenet v0.1.0'),
                     trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                  ),
+                  const Divider(height: 1),
+
+                  // ── Change PIN tile ─────────────────────────────────────
+                  ListTile(
+                    leading: const Icon(Icons.lock_reset, color: Color(0xFF0A8E48)),
+                    title: const Text('Change PIN'),
+                    subtitle: const Text('Update your security PIN'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showChangePinDialog(context),
                   ),
                   const Divider(height: 1),
 
@@ -886,6 +899,115 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return true;
     }
     return false;
+  }
+
+  void _showChangePinDialog(BuildContext context) {
+    final oldPinController = TextEditingController();
+    final newPinController = TextEditingController();
+    final confirmPinController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change PIN'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: oldPinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              decoration: const InputDecoration(
+                hintText: 'Current PIN',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: newPinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              decoration: const InputDecoration(
+                hintText: 'New PIN',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock_outline),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmPinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              decoration: const InputDecoration(
+                hintText: 'Confirm new PIN',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock_outline),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final oldPin = oldPinController.text.trim();
+              final newPin = newPinController.text.trim();
+              final confirmPin = confirmPinController.text.trim();
+
+              if (oldPin.length != 4 || newPin.length != 4) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('PIN must be 4 digits')),
+                );
+                return;
+              }
+              if (newPin != confirmPin) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('New PINs do not match')),
+                );
+                return;
+              }
+
+              // Verify old PIN
+              final secureStorage = FlutterSecureStorage();
+              final storedHash = await secureStorage.read(key: 'mekenet_pin_hash');
+              final bytes = utf8.encode(oldPin);
+              final digest = sha256.convert(bytes);
+              if (digest.toString() != storedHash) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Current PIN is incorrect')),
+                  );
+                }
+                return;
+              }
+
+              // Save new PIN
+              final newBytes = utf8.encode(newPin);
+              final newHash = sha256.convert(newBytes);
+              await secureStorage.write(key: 'mekenet_pin_hash', value: newHash.toString());
+
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('PIN updated successfully'),
+                    backgroundColor: Color(0xFF0A8E48),
+                  ),
+                );
+              }
+            },
+            child: const Text('Update', style: TextStyle(color: Color(0xFF0A8E48))),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _runSmsDebug(BuildContext context) async {
