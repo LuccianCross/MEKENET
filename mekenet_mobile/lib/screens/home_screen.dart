@@ -132,6 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildProfitCard(),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         _buildSummaryCard(
@@ -149,50 +151,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 10),
                         _buildSummaryCard(
-                          'OWED TO YOU',
+                          'OWED',
                           'Br${_totalOwed.toStringAsFixed(0)}',
                           const Color(0xFFFF8F00),
                           Icons.people,
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.08),
-                            spreadRadius: 1,
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'You made Br${_totalIncome.toStringAsFixed(0)} today',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0A8E48),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _recentTransactions.isEmpty
-                                ? 'No transactions yet. Send or receive money to get started.'
-                                : '${_recentTransactions.length} transaction${_recentTransactions.length == 1 ? '' : 's'} this week.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -274,6 +238,129 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildProfitCard() {
+    final profit = _totalIncome - _totalExpenses;
+    final isProfit = profit >= 0;
+    final profitColor = isProfit ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
+    final profitIcon = isProfit ? Icons.trending_up : Icons.trending_down;
+    final profitLabel = isProfit ? 'Today\'s Profit' : 'Today\'s Loss';
+
+    final total = _totalIncome + _totalExpenses;
+    final incomePercent = total > 0 ? _totalIncome / total : 0.0;
+    final expensePercent = total > 0 ? _totalExpenses / total : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isProfit
+              ? [const Color(0xFF0A8E48), const Color(0xFF1B6B3A)]
+              : [const Color(0xFFE53935), const Color(0xFFC62828)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: profitColor.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(profitIcon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                profitLabel,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Br${profit.abs().toStringAsFixed(0)}',
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: (incomePercent * 100).toInt(),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                if (expensePercent > 0)
+                  Expanded(
+                    flex: (expensePercent * 100).toInt(),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildProfitDetail('Income', _totalIncome, Icons.arrow_upward),
+              const SizedBox(width: 24),
+              _buildProfitDetail('Expenses', _totalExpenses, Icons.arrow_downward),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfitDetail(String label, double amount, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.8)),
+        const SizedBox(width: 4),
+        Text(
+          '$label: Br${amount.toStringAsFixed(0)}',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
+        ),
+      ],
     );
   }
 
