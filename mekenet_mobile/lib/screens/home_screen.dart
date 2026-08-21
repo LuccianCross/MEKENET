@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/transaction.dart';
 import '../repositories/repository_provider.dart';
 import '../services/sms/sms_listener.dart';
@@ -128,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('My Money Record'),
+        title: Text(AppLocalizations.of(context).t('myMoneyRecord')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -165,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 20),
                             ElevatedButton(
                               onPressed: _loadData,
-                              child: const Text('Retry'),
+                              child: Text(AppLocalizations.of(context).t('retry')),
                             ),
                           ],
                         ),
@@ -186,21 +187,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         _buildSummaryCard(
-                          'INCOME',
+                          AppLocalizations.of(context).t('income').toUpperCase(),
                           'Br${_selectedIncome.toStringAsFixed(0)}',
                           const Color(0xFF0A8E48),
                           Icons.arrow_upward,
                         ),
                         const SizedBox(width: 10),
                         _buildSummaryCard(
-                          'EXPENSES',
+                          AppLocalizations.of(context).t('expenses').toUpperCase(),
                           'Br${_selectedExpenses.toStringAsFixed(0)}',
                           const Color(0xFFE53935),
                           Icons.arrow_downward,
                         ),
                         const SizedBox(width: 10),
                         _buildSummaryCard(
-                          'OWED',
+                          AppLocalizations.of(context).t('owed').toUpperCase(),
                           'Br${_totalOwed.toStringAsFixed(0)}',
                           const Color(0xFFFF8F00),
                           Icons.people,
@@ -213,8 +214,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Recent Transactions',
+                         Text(
+                          AppLocalizations.of(context).t('recentTransactions'),
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -240,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'No transactions yet',
+                                AppLocalizations.of(context).t('noTransactionsYet'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey[500],
@@ -248,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Bank SMS will appear here automatically',
+                                AppLocalizations.of(context).t('bankSmsWillAppear'),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey[400],
@@ -311,11 +312,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get _periodLabel {
+    final loc = AppLocalizations.of(context);
     switch (_selectedPeriod) {
-      case 0: return 'Today';
-      case 1: return 'This Week';
-      case 2: return 'This Month';
-      default: return 'Today';
+      case 0: return loc.t('today');
+      case 1: return loc.t('thisWeek');
+      case 2: return loc.t('thisMonth');
+      default: return loc.t('today');
     }
   }
 
@@ -326,7 +328,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final isProfit = profit >= 0;
     final profitColor = isProfit ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
     final profitIcon = isProfit ? Icons.trending_up : Icons.trending_down;
-    final profitLabel = isProfit ? '$_periodLabel Profit' : '$_periodLabel Loss';
+    final loc = AppLocalizations.of(context);
+    final profitLabel = (() {
+      switch (_selectedPeriod) {
+        case 0: return isProfit ? loc.t('todayProfit') : loc.t('todayLoss');
+        case 1: return isProfit ? loc.t('thisWeekProfit') : loc.t('thisWeekLoss');
+        case 2: return isProfit ? loc.t('thisMonthProfit') : loc.t('thisMonthLoss');
+        default: return isProfit ? loc.t('todayProfit') : loc.t('todayLoss');
+      }
+    })();
 
     final total = income + expenses;
     final incomePercent = total > 0 ? income / total : 0.0;
@@ -427,11 +437,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // Period selector
           Row(
             children: [
-              _buildPeriodChip(0, 'Today'),
+              _buildPeriodChip(0, AppLocalizations.of(context).t('today')),
               const SizedBox(width: 6),
-              _buildPeriodChip(1, 'Week'),
+              _buildPeriodChip(1, AppLocalizations.of(context).t('thisWeek')),
               const SizedBox(width: 6),
-              _buildPeriodChip(2, 'Month'),
+              _buildPeriodChip(2, AppLocalizations.of(context).t('thisMonth')),
             ],
           ),
         ],
@@ -465,8 +475,8 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Last 7 Days',
+          Text(
+            AppLocalizations.of(context).t('last7Days'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
