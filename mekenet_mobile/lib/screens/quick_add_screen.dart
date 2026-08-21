@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/transaction.dart';
 import '../repositories/sqlite_transaction_repository.dart';
+import '../services/category_service.dart';
 import '../services/sync_service.dart';
 
 class QuickAddScreen extends StatefulWidget {
@@ -15,20 +16,31 @@ class QuickAddScreen extends StatefulWidget {
 class _QuickAddScreenState extends State<QuickAddScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
-  String _selectedCategory = 'Supplies';
+  String _selectedCategory = 'Other';
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+  List<String> _categories = [];
 
   final _repo = SqliteTransactionRepository();
 
-  final List<String> _categories = [
-    'Supplies',
-    'Rent',
-    'Utilities',
-    'Salaries',
-    'Transport',
-    'Other',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final cats = await CategoryService.instance.getCategories();
+    final mostUsed = await CategoryService.instance.getMostUsedCategory();
+    if (mounted) {
+      setState(() {
+        _categories = cats;
+        if (mostUsed != null && cats.contains(mostUsed)) {
+          _selectedCategory = mostUsed;
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +230,10 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       // 1. Save locally first — always works even offline
       await _repo.save(tx);
 
-      // 2. Attempt backend sync (silently fails if offline)
+      // 2. Record category usage for smart pre-fill
+      await CategoryService.instance.recordUsage(_selectedCategory);
+
+      // 3. Attempt backend sync (silently fails if offline)
       await SyncService.instance.syncOne(tx);
 
       if (mounted) {

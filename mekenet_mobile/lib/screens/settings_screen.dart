@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../api_client/mekenet_api_client.dart';
 import '../models/export_report.dart';
+import '../services/category_service.dart';
 import '../services/sync_service.dart';
 import '../services/parser/bank_identifier.dart';
 import '../services/parser/telebirr_sms_parser.dart';
@@ -227,6 +228,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: const Text('Send report to bank'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showExportDialog(context),
+                  ),
+                  const Divider(height: 1),
+
+                  // ── Manage Categories tile ───────────────────────────────
+                  ListTile(
+                    leading: const Icon(Icons.category,
+                        color: Color(0xFF0A8E48)),
+                    title: const Text('Manage Categories'),
+                    subtitle: const Text('Add or remove expense categories'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showCategoryManager(context),
                   ),
                   const Divider(height: 1),
 
@@ -641,6 +653,152 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _showCategoryManager(BuildContext context) async {
+    final catService = CategoryService.instance;
+    final initialCategories = await catService.getCategories();
+    final initialUsage = await catService.getUsageStats();
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.6,
+              maxChildSize: 0.9,
+              builder: (_, controller) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  child: ListView(
+                    controller: controller,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Manage Categories',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle, color: Color(0xFF0A8E48)),
+                            onPressed: () async {
+                              final added = await _addCategory(ctx, catService);
+                              if (added) {
+                                final updated = await catService.getCategories();
+                                setModalState(() {});
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap + to add custom categories',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<List<String>>(
+                        future: catService.getCategories(),
+                        builder: (snap, catList) {
+                          final cats = catList.data ?? [];
+                          return FutureBuilder<Map<String, int>>(
+                            future: catService.getUsageStats(),
+                            builder: (snap2, usageMap) {
+                              final usage = usageMap.data ?? {};
+                              return Column(
+                                children: cats.map((cat) {
+                                  final count = usage[cat] ?? 0;
+                                  final isDefault = CategoryService.defaultCategories.contains(cat);
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: CircleAvatar(
+                                      backgroundColor: const Color(0xFF0A8E48).withValues(alpha: 0.1),
+                                      child: Text(
+                                        cat.substring(0, 1).toUpperCase(),
+                                        style: const TextStyle(color: Color(0xFF0A8E48), fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    title: Text(cat),
+                                    subtitle: count > 0 ? Text('Used $count times') : null,
+                                    trailing: isDefault
+                                        ? const Icon(Icons.lock_outline, size: 18, color: Colors.grey)
+                                        : IconButton(
+                                            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                            onPressed: () async {
+                                              await catService.removeCategory(cat);
+                                              setModalState(() {});
+                                            },
+                                          ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<bool> _addCategory(BuildContext ctx, CategoryService catService) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Add Category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Delivery',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, controller.text.trim()),
+            child: const Text('Add', style: TextStyle(color: Color(0xFF0A8E48))),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      await catService.addCategory(result);
+      return true;
+    }
+    return false;
+  }
 
   Future<void> _runSmsDebug(BuildContext context) async {
     final results = <String>[];
