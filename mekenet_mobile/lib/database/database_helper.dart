@@ -51,6 +51,7 @@ class DatabaseHelper {
       version: _databaseVersion,
       password: key,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -96,11 +97,22 @@ class DatabaseHelper {
     );
   }
 
+  Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    developer.log(
+      'Database upgrade: $oldVersion -> $newVersion',
+      name: 'Mekenet.DB',
+    );
+  }
+
   Future<void> _createTransactionsTable(
     Database db,
   ) async {
     await db.execute('''
-      CREATE TABLE transactions (
+      CREATE TABLE IF NOT EXISTS transactions (
         id TEXT PRIMARY KEY,
         direction TEXT NOT NULL,
         amount REAL NOT NULL,
@@ -116,17 +128,17 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_transactions_timestamp
+      CREATE INDEX IF NOT EXISTS idx_transactions_timestamp
       ON transactions(timestamp)
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_transactions_synced
+      CREATE INDEX IF NOT EXISTS idx_transactions_synced
       ON transactions(synced)
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_transactions_raw_sms_hash
+      CREATE INDEX IF NOT EXISTS idx_transactions_raw_sms_hash
       ON transactions(raw_sms_hash)
     ''');
   }
@@ -135,7 +147,7 @@ class DatabaseHelper {
     Database db,
   ) async {
     await db.execute('''
-      CREATE TABLE debts (
+      CREATE TABLE IF NOT EXISTS debts (
         id TEXT PRIMARY KEY,
         customer_name TEXT NOT NULL,
         amount REAL NOT NULL,
@@ -145,12 +157,12 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_debts_status
+      CREATE INDEX IF NOT EXISTS idx_debts_status
       ON debts(status)
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_debts_created_at
+      CREATE INDEX IF NOT EXISTS idx_debts_created_at
       ON debts(created_at)
     ''');
   }
@@ -159,7 +171,7 @@ class DatabaseHelper {
     Database db,
   ) async {
     await db.execute('''
-      CREATE TABLE failed_parses (
+      CREATE TABLE IF NOT EXISTS failed_parses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         raw_sms TEXT NOT NULL,
         sender TEXT,
