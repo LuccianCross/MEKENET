@@ -28,6 +28,8 @@ class TransactionIn(BaseModel):
     date: Optional[str] = Field(default=None)
     category: Optional[str] = Field(default="uncategorized")
     currency: str = Field(default="ETB", max_length=10)
+    source: Optional[str] = Field(default=None, max_length=50)  # NEW: bank source
+    raw_sms_hash: Optional[str] = Field(default=None, max_length=64)  # NEW: SMS hash for dedup
 
     @field_validator("description", mode="before")
     @classmethod
@@ -70,15 +72,30 @@ def sync_transaction(
             detail="Missing X-Device-ID header",
         )
 
+    # Check for duplicate by transaction ID
     existing = db.query(Transaction).filter(Transaction.id == payload.id).first()
     if existing:
         stored_count = db.query(Transaction).count()
         return SyncResponse(
             success=True,
-            message="Transaction already exists (deduplicated)",
+            message="Transaction already exists (deduplicated by ID)",
             transaction_id=payload.id,
             stored_count=stored_count,
         )
+    
+    # Check for duplicate by SMS hash (if provided)
+    if payload.raw_sms_hash:
+        existing_sms = db.query(Transaction).filter(
+            Transaction.raw_sms_hash == payload.raw_sms_hash
+        ).first()
+        if existing_sms:
+            stored_count = db.query(Transaction).count()
+            return SyncResponse(
+                success=True,
+                message="Transaction already exists (deduplicated by SMS hash)",
+                transaction_id=existing_sms.id,
+                stored_count=stored_count,
+            )
 
     tx = Transaction(
         id=payload.id,
@@ -88,6 +105,8 @@ def sync_transaction(
         date=payload.date or datetime.now(timezone.utc).date().isoformat(),
         category=payload.category or "uncategorized",
         currency=payload.currency,
+        source=payload.source,
+        raw_sms_hash=payload.raw_sms_hash,
         device_id=x_device_id,
     )
     db.add(tx)
