@@ -403,32 +403,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    String? from = fromDate != null ? _fmt(fromDate) : null;
-    String? to   = toDate   != null ? _fmt(toDate)   : null;
+    try {
+      // Build report from local SQLite (works offline)
+      final start = fromDate ?? DateTime(2020);
+      final end = toDate != null
+          ? toDate.add(const Duration(days: 1))
+          : DateTime.now().add(const Duration(days: 1));
 
-    final report = await MekenetApiClient.exportReport(
-      fromDate: from,
-      toDate: to,
-      type: type,
-    );
+      final transactions = await RepositoryProvider.transaction
+          .getByDateRange(start, end);
 
-    if (!context.mounted) return;
-    Navigator.pop(context); // close loading
-
-    if (report == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not fetch report. Make sure the server is running '
-            'and you have synced at least one transaction.',
-          ),
-          duration: Duration(seconds: 4),
-        ),
+      final report = ExportReport.buildLocal(
+        transactions: transactions,
+        fromDate: fromDate,
+        toDate: toDate,
+        type: type,
       );
-      return;
-    }
 
-    _showReportSheet(context, report);
+      if (!context.mounted) return;
+      Navigator.pop(context); // close loading
+
+      if (report.transactionCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No transactions found for the selected period.',
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      _showReportSheet(context, report);
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // close loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating report: $e')),
+      );
+    }
   }
 
   void _showReportSheet(BuildContext context, ExportReport report) {

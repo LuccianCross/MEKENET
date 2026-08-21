@@ -86,12 +86,24 @@ Future<void> _handleSmsStatic(
     final direction =
         parsed.direction == TransactionDirection.received ? 'income' : 'expense';
 
+    // Use parsed counterparty if available, otherwise fall back to bank name
+    final counterparty = parsed.counterparty ?? bankName;
+
+    // Auto-categorize: look up previous transactions from same counterparty
+    String category = 'other';
+    final learnedCategory = await RepositoryProvider.transaction
+        .getCategoryByCounterparty(counterparty);
+    if (learnedCategory != null) {
+      category = learnedCategory;
+    }
+
     final transaction = Transaction(
       direction: direction,
       amount: parsed.amount,
       source: bankName.toLowerCase(),
       rawSmsHash: smsHash,
-      counterpartyMasked: bankName,
+      counterpartyMasked: counterparty,
+      category: category,
       timestamp: parsed.timestamp,
     );
 

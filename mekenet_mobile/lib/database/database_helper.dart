@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart';
@@ -75,9 +77,9 @@ class DatabaseHelper {
   }
 
   String _generateKey() {
-    final timestamp = DateTime.now().microsecondsSinceEpoch;
-
-    return 'mekenet-${timestamp.toRadixString(16)}-${Object().hashCode}';
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return base64Url.encode(bytes);
   }
 
   Future<void> _onCreate(

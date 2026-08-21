@@ -246,4 +246,27 @@ class SqliteTransactionRepository
         .map((map) => Transaction.fromMap(map))
         .toList();
   }
+
+  @override
+  Future<String?> getCategoryByCounterparty(String counterparty) async {
+    final db = await _db;
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT category, COUNT(*) AS cnt
+      FROM transactions
+      WHERE counterparty_masked = ?
+        AND category IS NOT NULL
+        AND category != 'other'
+        AND category != 'uncategorized'
+      GROUP BY category
+      ORDER BY cnt DESC
+      LIMIT 1
+      ''',
+      [counterparty],
+    );
+
+    if (rows.isEmpty) return null;
+    return rows.first['category'] as String;
+  }
 }
