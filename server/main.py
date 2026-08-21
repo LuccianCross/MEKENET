@@ -31,4 +31,12 @@ def on_startup():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "db_connection": "initialized"}
+    from db.database import SessionLocal
+    from sqlalchemy import text
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "ok", "db_connection": "healthy"}
+    except Exception as e:
+        return {"status": "degraded", "db_connection": str(e)}
