@@ -183,14 +183,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(page.icon, size: 56, color: Colors.white),
-          ),
+          page.titleKey == 'myMoneyRecord'
+              ? ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    width: 112,
+                    height: 112,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(page.icon, size: 56, color: Colors.white),
+                ),
           const SizedBox(height: 24),
           Text(
             AppLocalizations.of(context).t(page.titleKey),

@@ -127,9 +127,22 @@ class _StartupScreenState extends State<StartupScreen> {
   @override
   Widget build(BuildContext context) {
     if (_checking) {
-      return const Scaffold(
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF0A8E48)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/logo.jpg',
+                width: 120,
+                height: 120,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(color: Color(0xFF0A8E48)),
+            ],
+          ),
         ),
       );
     }

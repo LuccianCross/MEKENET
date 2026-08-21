@@ -71,7 +71,12 @@ class _PinScreenState extends State<PinScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.lock_outline, size: 48, color: Color(0xFF0A8E48)),
+              Image.asset(
+                'assets/images/logo.jpg',
+                width: 80,
+                height: 80,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 12),
               Text(
                 _isSettingPin
