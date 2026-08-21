@@ -13,6 +13,7 @@ import 'package:another_telephony/telephony.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api_client/mekenet_api_client.dart';
 import '../models/export_report.dart';
@@ -45,6 +46,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSyncPreference() async {
     final enabled = await SyncService.instance.isSyncEnabled();
+    // Load saved server URL
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('server_url');
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      MekenetApiClient.baseUrl = savedUrl;
+    }
     if (mounted) {
       setState(() {
         _syncEnabled = enabled;
@@ -220,15 +227,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
 
-                  // ── Server URL tile ─────────────────────────────────────
-                  ListTile(
-                    leading: const Icon(Icons.dns, color: Color(0xFF0A8E48)),
-                    title: const Text('Server URL'),
-                    subtitle: Text(MekenetApiClient.baseUrl),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _showServerUrlDialog(context),
-                  ),
-                  const Divider(height: 1),
+                  // ── Server URL tile (only when sync is ON) ─────────────
+                  if (_syncEnabled) ...[
+                    ListTile(
+                      leading: const Icon(Icons.dns, color: Color(0xFF0A8E48)),
+                      title: const Text('Server URL'),
+                      subtitle: Text(MekenetApiClient.baseUrl),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => _showServerUrlDialog(context),
+                    ),
+                    const Divider(height: 1),
+                  ],
 
                   // ── Export Data tile ─────────────────────────────────────
                   ListTile(
@@ -654,17 +663,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await file.writeAsString(csv);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved to ${file.path.split('/').last}'),
-            backgroundColor: const Color(0xFF0A8E48),
-            action: SnackBarAction(
-              label: 'Share',
-              textColor: Colors.white,
-              onPressed: () => Share.shareXFiles([XFile(file.path)], subject: 'Mekenet Report'),
+        // Close the report sheet first
+        Navigator.of(context).pop();
+        // Small delay to let the sheet close
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Saved: ${file.path.split('/').last}'),
+              backgroundColor: const Color(0xFF0A8E48),
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Open',
+                textColor: Colors.white,
+                onPressed: () async {
+                  // Open the file with the platform's default handler
+                  await Process.run('open', [directory.path]);
+                },
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -702,6 +721,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (url.isNotEmpty) {
                 setState(() {
                   MekenetApiClient.baseUrl = url;
+                });
+                // Persist the URL
+                SharedPreferences.getInstance().then((prefs) {
+                  prefs.setString('server_url', url);
                 });
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(

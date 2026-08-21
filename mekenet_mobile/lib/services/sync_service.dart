@@ -53,7 +53,15 @@ class SyncService {
 
     final deviceId = await _getOrCreateDeviceId();
     MekenetApiClient.deviceId = deviceId;
-    _log.i('[Sync] Initialized. Device ID: $deviceId');
+
+    // Restore saved server URL
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('server_url');
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      MekenetApiClient.baseUrl = savedUrl;
+    }
+
+    _log.i('[Sync] Initialized. Device ID: $deviceId, Server: ${MekenetApiClient.baseUrl}');
     _initialized = true;
   }
 

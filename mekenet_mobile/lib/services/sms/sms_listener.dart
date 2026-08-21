@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/transaction.dart';
@@ -17,6 +18,7 @@ import '../parser/cbe_sms_parser.dart';
 import '../parser/failed_parse_log.dart';
 import '../parser/parsed_bank_sms.dart';
 import '../parser/telebirr_sms_parser.dart';
+import '../sync_service.dart';
 
 @pragma('vm:entry-point')
 void onBackgroundMessage(SmsMessage message) async {
@@ -110,6 +112,9 @@ Future<void> _handleSmsStatic(
     await RepositoryProvider.transaction.save(transaction);
     SmsListener.transactionStream.add(null);
 
+    // Sync to server if enabled
+    SyncService.instance.syncOne(transaction);
+
     logger.i('BG: $bankName transaction saved: $direction Br${parsed.amount}');
   } catch (e) {
     logger.e('BG: Error handling SMS', error: e);
@@ -165,13 +170,13 @@ class SmsListener {
     }
   }
 
-  /// Read today's SMS inbox from known bank senders
+  /// Read today's SMS inbox from known bank senders.
+  /// Only processes SMS received AFTER the last known processed SMS timestamp.
   void _syncInbox() async {
     try {
-      final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day);
+      final prefs = await SharedPreferences.getInstance();
+      final lastProcessedMs = prefs.getInt('sms_last_processed_ms') ?? 0;
 
-      // Fetch all SMS from today, filter by sender in Dart
       final messages = await _telephony.getInboxSms(
         columns: [
           SmsColumn.ID,
@@ -180,18 +185,18 @@ class SmsListener {
           SmsColumn.DATE,
         ],
         filter: SmsFilter.where(SmsColumn.DATE).greaterThan(
-          startOfDay.millisecondsSinceEpoch.toString(),
+          lastProcessedMs.toString(),
         ),
         sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
       );
 
       int processed = 0;
+      int newestTimestamp = lastProcessedMs;
 
       for (final sms in messages) {
         final smsText = sms.body;
         if (smsText == null || smsText.isEmpty) continue;
 
-        // Quick check: skip if sender doesn't look like a bank
         final bankName = await BankIdentifier.identify(sms.address, smsText);
         if (bankName == null) continue;
 
@@ -202,6 +207,16 @@ class SmsListener {
 
         await _handleSms(smsText, sms.address);
         processed++;
+
+        // Track the newest SMS timestamp we've seen
+        if (sms.date != null && sms.date! > newestTimestamp) {
+          newestTimestamp = sms.date!;
+        }
+      }
+
+      // Save the newest timestamp so next time we only check newer SMS
+      if (newestTimestamp > lastProcessedMs) {
+        await prefs.setInt('sms_last_processed_ms', newestTimestamp);
       }
 
       _logger.i('Inbox sync: $processed new bank messages processed');
