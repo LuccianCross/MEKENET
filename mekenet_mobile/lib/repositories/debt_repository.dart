@@ -14,4 +14,6 @@ abstract class DebtRepository {
   Future<List<Debt>> getOpen();
 
   Future<List<Debt>> getPaid();
+
+  Future<List<Debt>> getOpenByType(String type);
 }

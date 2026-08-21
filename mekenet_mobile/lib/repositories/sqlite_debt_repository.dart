@@ -106,4 +106,20 @@ class SqliteDebtRepository implements DebtRepository {
         .map((map) => Debt.fromMap(map))
         .toList();
   }
+
+  @override
+  Future<List<Debt>> getOpenByType(String type) async {
+    final db = await _db;
+
+    final rows = await db.query(
+      'debts',
+      where: 'status = ? AND type = ?',
+      whereArgs: ['open', type],
+      orderBy: 'created_at DESC',
+    );
+
+    return rows
+        .map((map) => Debt.fromMap(map))
+        .toList();
+  }
 }

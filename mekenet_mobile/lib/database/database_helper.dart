@@ -20,7 +20,7 @@ class DatabaseHelper {
 
   static const String _databaseName = 'mekenet.db';
 
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   Future<Database> get database async {
     if (_database != null) {
@@ -106,6 +106,12 @@ class DatabaseHelper {
       'Database upgrade: $oldVersion -> $newVersion',
       name: 'Mekenet.DB',
     );
+
+    if (oldVersion < 2) {
+      await db.execute(
+        "ALTER TABLE debts ADD COLUMN type TEXT NOT NULL DEFAULT 'owed_to_me'",
+      );
+    }
   }
 
   Future<void> _createTransactionsTable(
@@ -152,6 +158,7 @@ class DatabaseHelper {
         customer_name TEXT NOT NULL,
         amount REAL NOT NULL,
         status TEXT NOT NULL DEFAULT 'open',
+        type TEXT NOT NULL DEFAULT 'owed_to_me',
         created_at INTEGER NOT NULL
       )
     ''');

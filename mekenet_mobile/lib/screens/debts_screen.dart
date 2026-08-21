@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/debt.dart';
 import '../repositories/repository_provider.dart';
 
@@ -12,10 +13,11 @@ class DebtsScreen extends StatefulWidget {
 }
 
 class _DebtsScreenState extends State<DebtsScreen> {
-  List<Debt> _debts = [];
-  double _totalOwed = 0;
+  List<Debt> _owedToMe = [];
+  List<Debt> _iOwe = [];
   bool _isLoading = true;
   String? _error;
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -30,13 +32,15 @@ class _DebtsScreenState extends State<DebtsScreen> {
     });
 
     try {
-      final debts = await RepositoryProvider.debt.getOpen();
-      final total = debts.fold<double>(0, (sum, d) => sum + d.amount);
+      final results = await Future.wait([
+        RepositoryProvider.debt.getOpenByType('owed_to_me'),
+        RepositoryProvider.debt.getOpenByType('i_owe'),
+      ]);
 
       if (mounted) {
         setState(() {
-          _debts = debts;
-          _totalOwed = total;
+          _owedToMe = results[0];
+          _iOwe = results[1];
           _isLoading = false;
         });
       }
@@ -52,10 +56,15 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final currentList = _selectedTab == 0 ? _owedToMe : _iOwe;
+    final totalOwedToMe = _owedToMe.fold<double>(0, (s, d) => s + d.amount);
+    final totalIOwe = _iOwe.fold<double>(0, (s, d) => s + d.amount);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Who Owes Me'),
+        title: Text(loc.t('debts')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -83,16 +92,16 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           children: [
                             const Icon(Icons.error_outline, size: 50, color: Colors.red),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Could not load debts',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            Text(
+                              loc.t('couldNotLoadData'),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
                             Text(_error!, textAlign: TextAlign.center),
                             const SizedBox(height: 20),
                             ElevatedButton(
                               onPressed: _loadData,
-                              child: const Text('Retry'),
+                              child: Text(loc.t('retry')),
                             ),
                           ],
                         ),
@@ -100,86 +109,163 @@ class _DebtsScreenState extends State<DebtsScreen> {
                     ),
                   ],
                 )
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withValues(alpha: 0.08),
-                              spreadRadius: 1,
-                              blurRadius: 6,
+              : Column(
+                  children: [
+                    // Summary cards
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildSummaryTile(
+                              'Owed to Me',
+                              totalOwedToMe,
+                              const Color(0xFF0A8E48),
+                              Icons.arrow_downward,
                             ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Total Outstanding Owed',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildSummaryTile(
+                              'I Owe',
+                              totalIOwe,
+                              const Color(0xFFE53935),
+                              Icons.arrow_upward,
                             ),
-                            Text(
-                              'Br${_totalOwed.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0A8E48),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: _debts.isEmpty
-                            ? ListView(
-                                children: [
-                                  const SizedBox(height: 60),
-                                  Center(
-                                    child: Column(
-                                      children: [
-                                        Icon(Icons.people_outline, size: 50, color: Colors.grey[300]),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'No debts recorded',
-                                          style: TextStyle(fontSize: 16, color: Colors.grey[500]),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Tap + to add someone who owes you',
-                                          style: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                                        ),
-                                      ],
-                                    ),
+                    ),
+                    // Tabs
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Row(
+                        children: [
+                          Expanded(child: _buildTab(0, 'Owed to Me (${_owedToMe.length})')),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildTab(1, 'I Owe (${_iOwe.length})')),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: currentList.isEmpty
+                          ? ListView(
+                              children: [
+                                const SizedBox(height: 60),
+                                Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.people_outline, size: 50, color: Colors.grey[300]),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        _selectedTab == 0
+                                            ? 'No one owes you yet'
+                                            : 'You don\'t owe anyone',
+                                        style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Tap + to add a debt',
+                                        style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              )
-                            : ListView.builder(
+                                ),
+                              ],
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadData,
+                              child: ListView.builder(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: _debts.length,
+                                itemCount: currentList.length,
                                 itemBuilder: (context, index) {
-                                  final debt = _debts[index];
+                                  final debt = currentList[index];
                                   return _buildDebtTile(debt);
                                 },
                               ),
-                      ),
-                    ],
-                  ),
+                            ),
+                    ),
+                  ],
                 ),
+    );
+  }
+
+  Widget _buildSummaryTile(String label, double amount, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.08),
+            spreadRadius: 1,
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Br${amount.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(int index, String label) {
+    final isSelected = _selectedTab == index;
+    final color = index == 0 ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTab = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: color, width: 1.5) : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? color : Colors.grey[600],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildDebtTile(Debt debt) {
     final isPaid = debt.status == 'paid';
+    final isIOwe = debt.type == 'i_owe';
+    final color = isIOwe ? const Color(0xFFE53935) : const Color(0xFFFF8F00);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -187,9 +273,6 @@ class _DebtsScreenState extends State<DebtsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: isPaid
-            ? Border.all(color: const Color(0xFF0A8E48), width: 1.5)
-            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.05),
@@ -201,12 +284,10 @@ class _DebtsScreenState extends State<DebtsScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isPaid
-                ? const Color(0xFF0A8E48).withValues(alpha: 0.1)
-                : const Color(0xFFFF8F00).withValues(alpha: 0.1),
+            backgroundColor: color.withValues(alpha: 0.1),
             child: Icon(
-              isPaid ? Icons.check : Icons.person,
-              color: isPaid ? const Color(0xFF0A8E48) : const Color(0xFFFF8F00),
+              isPaid ? Icons.check : (isIOwe ? Icons.arrow_upward : Icons.person),
+              color: isPaid ? const Color(0xFF0A8E48) : color,
             ),
           ),
           const SizedBox(width: 12),
@@ -239,7 +320,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: isPaid ? const Color(0xFF0A8E48) : const Color(0xFFFF8F00),
+                  color: isPaid ? const Color(0xFF0A8E48) : color,
                 ),
               ),
               Row(
@@ -307,6 +388,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
         customerName: debt.customerName,
         amount: debt.amount,
         status: 'paid',
+        type: debt.type,
         createdAt: debt.createdAt,
       );
       await RepositoryProvider.debt.update(updated);
@@ -353,6 +435,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
   void _showAddDebtSheet(BuildContext context) {
     final nameController = TextEditingController();
     final amountController = TextEditingController();
+    String selectedType = 'owed_to_me';
 
     showModalBottomSheet(
       context: context,
@@ -361,74 +444,142 @@ class _DebtsScreenState extends State<DebtsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text('Add Debt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  hintText: "Person's name",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: 'Amount (Br)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.money),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    final amount = double.tryParse(amountController.text.trim());
-
-                    if (name.isEmpty || amount == null || amount <= 0) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(content: Text('Please fill in all fields')),
-                      );
-                      return;
-                    }
-
-                    final debt = Debt(
-                      customerName: name,
-                      amount: amount,
-                    );
-
-                    await RepositoryProvider.debt.save(debt);
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    _loadData();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A8E48),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                    ),
                   ),
-                  child: const Text('Save'),
-                ),
+                  const SizedBox(height: 16),
+                  const Text('Add Debt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  // Type selector
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setSheetState(() => selectedType = 'owed_to_me'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: selectedType == 'owed_to_me'
+                                  ? const Color(0xFF0A8E48).withValues(alpha: 0.1)
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: selectedType == 'owed_to_me'
+                                  ? Border.all(color: const Color(0xFF0A8E48), width: 1.5)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Owes Me',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: selectedType == 'owed_to_me'
+                                      ? const Color(0xFF0A8E48)
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setSheetState(() => selectedType = 'i_owe'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: selectedType == 'i_owe'
+                                  ? const Color(0xFFE53935).withValues(alpha: 0.1)
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: selectedType == 'i_owe'
+                                  ? Border.all(color: const Color(0xFFE53935), width: 1.5)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'I Owe',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: selectedType == 'i_owe'
+                                      ? const Color(0xFFE53935)
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      hintText: "Person's name",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'Amount (Br)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.money),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final name = nameController.text.trim();
+                        final amount = double.tryParse(amountController.text.trim());
+
+                        if (name.isEmpty || amount == null || amount <= 0) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Please fill in all fields')),
+                          );
+                          return;
+                        }
+
+                        final debt = Debt(
+                          customerName: name,
+                          amount: amount,
+                          type: selectedType,
+                        );
+
+                        await RepositoryProvider.debt.save(debt);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _loadData();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0A8E48),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
