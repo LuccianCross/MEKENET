@@ -29,7 +29,7 @@ class MekenetApiClient {
 
   /// Default: local network for real device testing.
   /// Change this to your computer's IP when testing on a real device.
-  static String baseUrl = 'http://10.213.41.190:8000';
+  static String baseUrl = 'http://10.2.64.132:8000';
 
   /// Injected at startup by [SyncService] after reading device info.
   static String deviceId = 'unknown-device';

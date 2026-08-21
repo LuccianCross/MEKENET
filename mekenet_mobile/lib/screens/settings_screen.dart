@@ -220,6 +220,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
 
+                  // ── Server URL tile ─────────────────────────────────────
+                  ListTile(
+                    leading: const Icon(Icons.dns, color: Color(0xFF0A8E48)),
+                    title: const Text('Server URL'),
+                    subtitle: Text(MekenetApiClient.baseUrl),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showServerUrlDialog(context),
+                  ),
+                  const Divider(height: 1),
+
                   // ── Export Data tile ─────────────────────────────────────
                   ListTile(
                     leading: const Icon(Icons.upload_file,
@@ -667,6 +677,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  void _showServerUrlDialog(BuildContext context) {
+    final controller = TextEditingController(text: MekenetApiClient.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Server URL'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'http://192.168.1.100:8000',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final url = controller.text.trim();
+              if (url.isNotEmpty) {
+                setState(() {
+                  MekenetApiClient.baseUrl = url;
+                });
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Server URL updated to $url'),
+                    backgroundColor: const Color(0xFF0A8E48),
+                  ),
+                );
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: Color(0xFF0A8E48))),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _showCategoryManager(BuildContext context) async {
     final catService = CategoryService.instance;
