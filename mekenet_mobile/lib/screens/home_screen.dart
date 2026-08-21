@@ -22,6 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double _monthExpenses = 0;
   double _totalOwed = 0;
   List<Transaction> _recentTransactions = [];
+  List<MapEntry<DateTime, double>> _dailyIncome = [];
+  List<MapEntry<DateTime, double>> _dailyExpenses = [];
   bool _isLoading = true;
   String? _error;
   StreamSubscription<void>? _smsSub;
@@ -70,6 +72,32 @@ class _HomeScreenState extends State<HomeScreen> {
       final debts = results[6] as List;
       final owed = debts.fold<double>(0, (sum, d) => sum + (d as dynamic).amount);
 
+      // Load last 7 days for chart
+      final now7 = DateTime.now();
+      final sevenDaysAgo = DateTime(now7.year, now7.month, now7.day - 6);
+      final weekTx = await RepositoryProvider.transaction.getByDateRange(
+        sevenDaysAgo,
+        now7.add(const Duration(hours: 23, minutes: 59)),
+      );
+
+      final dailyIncome = <DateTime, double>{};
+      final dailyExpenses = <DateTime, double>{};
+      for (int i = 0; i < 7; i++) {
+        final day = DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day + i);
+        dailyIncome[day] = 0;
+        dailyExpenses[day] = 0;
+      }
+      for (final tx in weekTx) {
+        final day = DateTime(tx.timestamp.year, tx.timestamp.month, tx.timestamp.day);
+        if (dailyIncome.containsKey(day)) {
+          if (tx.direction == 'income') {
+            dailyIncome[day] = dailyIncome[day]! + tx.amount;
+          } else {
+            dailyExpenses[day] = dailyExpenses[day]! + tx.amount;
+          }
+        }
+      }
+
       if (mounted) {
         setState(() {
           _todayIncome = results[0] as double;
@@ -80,6 +108,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _monthExpenses = results[5] as double;
           _totalOwed = owed;
           _recentTransactions = results[7] as List<Transaction>;
+          _dailyIncome = dailyIncome.entries.toList();
+          _dailyExpenses = dailyExpenses.entries.toList();
           _isLoading = false;
         });
       }
@@ -177,6 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 20),
+                    _buildChart(),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -406,6 +438,118 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildChart() {
+    if (_dailyIncome.isEmpty) return const SizedBox.shrink();
+
+    final maxY = [
+      ..._dailyIncome.map((e) => e.value),
+      ..._dailyExpenses.map((e) => e.value),
+    ].fold<double>(0, (a, b) => a > b ? a : b);
+
+    final chartMaxY = maxY > 0 ? maxY * 1.2 : 1000.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.08),
+            spreadRadius: 1,
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Last 7 Days',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Container(width: 12, height: 12, color: const Color(0xFF0A8E48)),
+              const SizedBox(width: 4),
+              const Text('Income', style: TextStyle(fontSize: 11)),
+              const SizedBox(width: 12),
+              Container(width: 12, height: 12, color: const Color(0xFFE53935)),
+              const SizedBox(width: 4),
+              const Text('Expenses', style: TextStyle(fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 160,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(7, (i) {
+                final incomeH = chartMaxY > 0
+                    ? (_dailyIncome[i].value / chartMaxY) * 140
+                    : 0.0;
+                final expenseH = chartMaxY > 0
+                    ? (_dailyExpenses[i].value / chartMaxY) * 140
+                    : 0.0;
+                final day = _dailyIncome[i].key;
+
+                return Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            width: 10,
+                            height: incomeH.clamp(2, 140),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0A8E48),
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Container(
+                            width: 10,
+                            height: expenseH.clamp(2, 140),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE53935),
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _dayName(day),
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  String _dayName(DateTime day) => _dayNames[(day.weekday - 1) % 7];
 
   Widget _buildProfitDetail(String label, double amount, IconData icon) {
     return Row(
