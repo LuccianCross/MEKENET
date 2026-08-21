@@ -166,24 +166,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   StreamSubscription<void>? _smsSub;
 
-  late final List<Widget> _screens;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _screens = const [
-      HomeScreen(),
-      QuickAddScreen(),
-      DebtsScreen(),
-      SettingsScreen(),
-    ];
-
-    // Initialize SMS listener AFTER UI is ready (Activity exists for permission dialog)
     SmsListener.instance.initialize();
 
-    // Show notification when new transaction is detected
     _smsSub = SmsListener.instance.onTransactionAdded.listen((_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -200,7 +189,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Retry syncing any unsynced transactions when app comes to foreground
       SyncService.instance.retryUnsynced();
     }
   }
@@ -215,7 +203,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: const [
+          HomeScreen(),
+          QuickAddScreen(),
+          DebtsScreen(),
+          SettingsScreen(),
+        ],
+      ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {

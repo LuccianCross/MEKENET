@@ -29,6 +29,7 @@ import '../services/parser/awash_sms_parser.dart';
 import '../services/parser/parsed_bank_sms.dart';
 import '../services/parser/failed_parse_log.dart';
 import '../repositories/repository_provider.dart';
+import '../main.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -40,11 +41,19 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _syncEnabled = false;
   bool _loadingSync = true;
+  String _currentLang = 'en';
 
   @override
   void initState() {
     super.initState();
     _loadSyncPreference();
+    _loadLanguage();
+  }
+
+  Future<void> _loadLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lang = prefs.getString('app_language') ?? 'en';
+    if (mounted) setState(() => _currentLang = lang);
   }
 
   Future<void> _loadSyncPreference() async {
@@ -261,6 +270,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: const Text('Add or remove expense categories'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showCategoryManager(context),
+                  ),
+                  const Divider(height: 1),
+
+                  // ── Language preference ──────────────────────────────
+                  ListTile(
+                    leading: const Icon(Icons.language, color: Color(0xFF0A8E48)),
+                    title: const Text('Language'),
+                    subtitle: Text(_currentLang == 'am' ? 'Amharic' : 'English'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showLanguageDialog(context),
                   ),
                   const Divider(height: 1),
 
@@ -939,6 +958,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return true;
     }
     return false;
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Select Language'),
+        children: [
+          RadioListTile<String>(
+            title: const Text('English'),
+            value: 'en',
+            groupValue: _currentLang,
+            activeColor: const Color(0xFF0A8E48),
+            onChanged: (val) async {
+              if (val == null) return;
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('app_language', val);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                setState(() => _currentLang = val);
+                MyMekenet.of(context)?.setLocale(val);
+              }
+            },
+          ),
+          RadioListTile<String>(
+            title: const Text('Amharic'),
+            value: 'am',
+            groupValue: _currentLang,
+            activeColor: const Color(0xFF0A8E48),
+            onChanged: (val) async {
+              if (val == null) return;
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('app_language', val);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                setState(() => _currentLang = val);
+                MyMekenet.of(context)?.setLocale(val);
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _showChangePinDialog(BuildContext context) {

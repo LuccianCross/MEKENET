@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MapEntry<DateTime, double>> _dailyExpenses = [];
   List<MapEntry<String, double>> _incomeByCategory = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _error;
   StreamSubscription<void>? _smsSub;
   int _selectedPeriod = 0; // 0=Today, 1=Week, 2=Month
@@ -36,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadData();
     _smsSub = SmsListener.instance.onTransactionAdded.listen((_) {
-      if (mounted) _loadData();
+      if (mounted) _refreshSilently();
     });
   }
 
@@ -46,6 +47,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// Silent refresh — no loading spinner, just updates data in-place.
+  Future<void> _refreshSilently() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    try {
+      await _fetchData();
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
@@ -53,80 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      final startOfWeek = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: now.weekday - 1));
-      final startOfMonth = DateTime(now.year, now.month, 1);
-
-      // Determine start for breakdown based on selected period
-      final startForPeriod = _selectedPeriod == 0
-          ? startOfDay
-          : _selectedPeriod == 1
-              ? startOfWeek
-              : startOfMonth;
-
-      // Fetch all periods in parallel
-      final results = await Future.wait([
-        RepositoryProvider.transaction.getTotalIncome(startOfDay, now),
-        RepositoryProvider.transaction.getTotalExpenses(startOfDay, now),
-        RepositoryProvider.transaction.getTotalIncome(startOfWeek, now),
-        RepositoryProvider.transaction.getTotalExpenses(startOfWeek, now),
-        RepositoryProvider.transaction.getTotalIncome(startOfMonth, now),
-        RepositoryProvider.transaction.getTotalExpenses(startOfMonth, now),
-        RepositoryProvider.debt.getOpen(),
-        RepositoryProvider.transaction.getThisWeek(),
-      ]);
-
-      final debts = results[6] as List;
-      final owed = debts.fold<double>(0, (sum, d) => sum + (d as dynamic).amount);
-
-      // Load last 7 days for chart
-      final now7 = DateTime.now();
-      final sevenDaysAgo = DateTime(now7.year, now7.month, now7.day - 6);
-      final weekTx = await RepositoryProvider.transaction.getByDateRange(
-        sevenDaysAgo,
-        now7.add(const Duration(hours: 23, minutes: 59)),
-      );
-
-      // Load income category breakdown for the selected period
-      final incomeBreakdown = await RepositoryProvider.transaction
-          .getCategoryBreakdown(startForPeriod, now, 'income');
-
-      final dailyIncome = <DateTime, double>{};
-      final dailyExpenses = <DateTime, double>{};
-      for (int i = 0; i < 7; i++) {
-        final day = DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day + i);
-        dailyIncome[day] = 0;
-        dailyExpenses[day] = 0;
-      }
-      for (final tx in weekTx) {
-        final day = DateTime(tx.timestamp.year, tx.timestamp.month, tx.timestamp.day);
-        if (dailyIncome.containsKey(day)) {
-          if (tx.direction == 'income') {
-            dailyIncome[day] = dailyIncome[day]! + tx.amount;
-          } else {
-            dailyExpenses[day] = dailyExpenses[day]! + tx.amount;
-          }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _todayIncome = results[0] as double;
-          _todayExpenses = results[1] as double;
-          _weekIncome = results[2] as double;
-          _weekExpenses = results[3] as double;
-          _monthIncome = results[4] as double;
-          _monthExpenses = results[5] as double;
-          _totalOwed = owed;
-          _recentTransactions = results[7] as List<Transaction>;
-          _dailyIncome = dailyIncome.entries.toList();
-          _dailyExpenses = dailyExpenses.entries.toList();
-          _incomeByCategory = incomeBreakdown;
-          _isLoading = false;
-        });
-      }
+      await _fetchData();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -134,6 +73,82 @@ class _HomeScreenState extends State<HomeScreen> {
           _error = e.toString();
         });
       }
+    }
+  }
+
+  Future<void> _fetchData() async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    final startOfMonth = DateTime(now.year, now.month, 1);
+
+    final startForPeriod = _selectedPeriod == 0
+        ? startOfDay
+        : _selectedPeriod == 1
+            ? startOfWeek
+            : startOfMonth;
+
+    // Fetch all periods in parallel
+    final results = await Future.wait([
+      RepositoryProvider.transaction.getTotalIncome(startOfDay, now),
+      RepositoryProvider.transaction.getTotalExpenses(startOfDay, now),
+      RepositoryProvider.transaction.getTotalIncome(startOfWeek, now),
+      RepositoryProvider.transaction.getTotalExpenses(startOfWeek, now),
+      RepositoryProvider.transaction.getTotalIncome(startOfMonth, now),
+      RepositoryProvider.transaction.getTotalExpenses(startOfMonth, now),
+      RepositoryProvider.debt.getOpen(),
+      RepositoryProvider.transaction.getThisWeek(),
+    ]);
+
+    final debts = results[6] as List;
+    final owed = debts.fold<double>(0, (sum, d) => sum + (d as dynamic).amount);
+
+    // Load last 7 days for chart
+    final now7 = DateTime.now();
+    final sevenDaysAgo = DateTime(now7.year, now7.month, now7.day - 6);
+    final weekTx = await RepositoryProvider.transaction.getByDateRange(
+      sevenDaysAgo,
+      now7.add(const Duration(hours: 23, minutes: 59)),
+    );
+
+    // Load income category breakdown for the selected period
+    final incomeBreakdown = await RepositoryProvider.transaction
+        .getCategoryBreakdown(startForPeriod, now, 'income');
+
+    final dailyIncome = <DateTime, double>{};
+    final dailyExpenses = <DateTime, double>{};
+    for (int i = 0; i < 7; i++) {
+      final day = DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day + i);
+      dailyIncome[day] = 0;
+      dailyExpenses[day] = 0;
+    }
+    for (final tx in weekTx) {
+      final day = DateTime(tx.timestamp.year, tx.timestamp.month, tx.timestamp.day);
+      if (dailyIncome.containsKey(day)) {
+        if (tx.direction == 'income') {
+          dailyIncome[day] = dailyIncome[day]! + tx.amount;
+        } else {
+          dailyExpenses[day] = dailyExpenses[day]! + tx.amount;
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _todayIncome = results[0] as double;
+        _todayExpenses = results[1] as double;
+        _weekIncome = results[2] as double;
+        _weekExpenses = results[3] as double;
+        _monthIncome = results[4] as double;
+        _monthExpenses = results[5] as double;
+        _totalOwed = owed;
+        _recentTransactions = results[7] as List<Transaction>;
+        _dailyIncome = dailyIncome.entries.toList();
+        _dailyExpenses = dailyExpenses.entries.toList();
+        _incomeByCategory = incomeBreakdown;
+        _isLoading = false;
+      });
     }
   }
 
