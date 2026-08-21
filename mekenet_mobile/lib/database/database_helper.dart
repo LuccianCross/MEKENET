@@ -18,7 +18,9 @@ class DatabaseHelper {
 
   static const String _databaseName = 'mekenet.db';
 
-  static const int _databaseVersion = 1;
+  // IMPORTANT:
+  // Increase this whenever the database structure changes.
+  static const int _databaseVersion = 2;
 
   Future<Database> get database async {
     if (_database != null) {
@@ -40,7 +42,7 @@ class DatabaseHelper {
     );
 
     developer.log(
-      'Opening encrypted database',
+      'Opening encrypted database: $databasePath',
       name: 'Mekenet.DB',
     );
 
@@ -48,7 +50,12 @@ class DatabaseHelper {
       databasePath,
       version: _databaseVersion,
       password: key,
+
+      // Called when the database is created for the first time.
       onCreate: _onCreate,
+
+      // Called when an existing database is upgraded.
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -80,6 +87,10 @@ class DatabaseHelper {
     return 'mekenet-${timestamp.toRadixString(16)}-${Object().hashCode}';
   }
 
+  // ============================================================
+  // DATABASE CREATION
+  // ============================================================
+
   Future<void> _onCreate(
     Database db,
     int version,
@@ -89,16 +100,46 @@ class DatabaseHelper {
     await _createFailedParsesTable(db);
 
     developer.log(
-      'Database tables created successfully',
+      'All database tables created successfully',
       name: 'Mekenet.DB',
     );
   }
+
+  // ============================================================
+  // DATABASE MIGRATION
+  // ============================================================
+
+  Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    developer.log(
+      'Database upgrade: $oldVersion -> $newVersion',
+      name: 'Mekenet.DB',
+    );
+
+    // Version 1 -> Version 2
+    if (oldVersion < 2) {
+      await _createDebtsTableIfNotExists(db);
+      await _createFailedParsesTableIfNotExists(db);
+
+      developer.log(
+        'Database migrated to version 2',
+        name: 'Mekenet.DB',
+      );
+    }
+  }
+
+  // ============================================================
+  // TRANSACTIONS TABLE
+  // ============================================================
 
   Future<void> _createTransactionsTable(
     Database db,
   ) async {
     await db.execute('''
-      CREATE TABLE transactions (
+      CREATE TABLE IF NOT EXISTS transactions (
         id TEXT PRIMARY KEY,
         direction TEXT NOT NULL,
         amount REAL NOT NULL,
@@ -114,26 +155,30 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_transactions_timestamp
+      CREATE INDEX IF NOT EXISTS idx_transactions_timestamp
       ON transactions(timestamp)
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_transactions_synced
+      CREATE INDEX IF NOT EXISTS idx_transactions_synced
       ON transactions(synced)
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_transactions_raw_sms_hash
+      CREATE INDEX IF NOT EXISTS idx_transactions_raw_sms_hash
       ON transactions(raw_sms_hash)
     ''');
   }
+
+  // ============================================================
+  // DEBTS TABLE
+  // ============================================================
 
   Future<void> _createDebtsTable(
     Database db,
   ) async {
     await db.execute('''
-      CREATE TABLE debts (
+      CREATE TABLE IF NOT EXISTS debts (
         id TEXT PRIMARY KEY,
         customer_name TEXT NOT NULL,
         amount REAL NOT NULL,
@@ -143,21 +188,25 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_debts_status
+      CREATE INDEX IF NOT EXISTS idx_debts_status
       ON debts(status)
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_debts_created_at
+      CREATE INDEX IF NOT EXISTS idx_debts_created_at
       ON debts(created_at)
     ''');
   }
+
+  // ============================================================
+  // FAILED PARSES TABLE
+  // ============================================================
 
   Future<void> _createFailedParsesTable(
     Database db,
   ) async {
     await db.execute('''
-      CREATE TABLE failed_parses (
+      CREATE TABLE IF NOT EXISTS failed_parses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         raw_sms TEXT NOT NULL,
         sender TEXT,
@@ -167,9 +216,56 @@ class DatabaseHelper {
     ''');
   }
 
+  // ============================================================
+  // SAFE TABLE CREATION FOR MIGRATION
+  // ============================================================
+
+  Future<void> _createDebtsTableIfNotExists(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS debts (
+        id TEXT PRIMARY KEY,
+        customer_name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_debts_status
+      ON debts(status)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_debts_created_at
+      ON debts(created_at)
+    ''');
+  }
+
+  Future<void> _createFailedParsesTableIfNotExists(
+    Database db,
+  ) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS failed_parses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        raw_sms TEXT NOT NULL,
+        sender TEXT,
+        reason TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  // ============================================================
+  // CLOSE DATABASE
+  // ============================================================
+
   Future<void> close() async {
     if (_database != null) {
       await _database!.close();
+
       _database = null;
 
       developer.log(
