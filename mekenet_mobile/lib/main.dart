@@ -3,10 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'database/database_helper.dart';
 import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/quick_add_screen.dart';
 import 'screens/debts_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/onboarding_screen.dart';
 import 'screens/pin_screen.dart';
 import 'services/sync_service.dart';
 import 'services/sms/sms_listener.dart';
