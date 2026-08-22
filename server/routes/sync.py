@@ -7,6 +7,7 @@ Accepts a transaction payload from the Flutter app and writes it into
 the Postgres database. Deduplicates by transaction id.
 """
 
+import re
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
@@ -15,9 +16,12 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+from middleware.auth import require_api_key
 from models.transaction import Transaction
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+
+_XSS_STRIP = re.compile(r"[<>&\"']")
 
 
 class TransactionIn(BaseModel):
@@ -31,8 +35,17 @@ class TransactionIn(BaseModel):
 
     @field_validator("description", mode="before")
     @classmethod
-    def strip_description(cls, v: str) -> str:
-        return v.strip()
+    def sanitize_description(cls, v: str) -> str:
+        v = v.strip()
+        v = _XSS_STRIP.sub("", v)
+        return v
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def sanitize_category(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return _XSS_STRIP.sub("", v.strip())
 
     @field_validator("date", mode="before")
     @classmethod
@@ -62,6 +75,7 @@ class SyncResponse(BaseModel):
 def sync_transaction(
     payload: TransactionIn,
     x_device_id: Optional[str] = Header(default=None, alias="X-Device-ID"),
+    _key: str = Depends(require_api_key),
     db: Session = Depends(get_db),
 ) -> SyncResponse:
     if not x_device_id:
@@ -72,12 +86,14 @@ def sync_transaction(
 
     existing = db.query(Transaction).filter(Transaction.id == payload.id).first()
     if existing:
-        stored_count = db.query(Transaction).count()
+        count = db.query(Transaction).filter(
+            Transaction.device_id == x_device_id
+        ).count()
         return SyncResponse(
             success=True,
             message="Transaction already exists (deduplicated)",
             transaction_id=payload.id,
-            stored_count=stored_count,
+            stored_count=count,
         )
 
     tx = Transaction(
@@ -93,11 +109,13 @@ def sync_transaction(
     db.add(tx)
     db.commit()
 
-    stored_count = db.query(Transaction).count()
+    count = db.query(Transaction).filter(
+        Transaction.device_id == x_device_id
+    ).count()
 
     return SyncResponse(
         success=True,
         message="Transaction synced successfully",
         transaction_id=payload.id,
-        stored_count=stored_count,
+        stored_count=count,
     )

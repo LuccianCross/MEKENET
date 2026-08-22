@@ -1241,7 +1241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final failures = await FailedParseLog.getAll();
         for (final f in failures.take(3)) {
           results.add('  Reason: ${f.reason} | Sender: ${f.sender}');
-          results.add('  SMS: ${f.rawSms.substring(0, (f.rawSms.length).clamp(0, 80))}');
+          results.add('  Hash: ${f.rawSmsHash.substring(0, (f.rawSmsHash.length).clamp(0, 16))}');
         }
       }
     } catch (e) {

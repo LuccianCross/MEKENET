@@ -1,10 +1,12 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 
-import '../main.dart';
 import '../l10n/app_localizations.dart';
+import '../main.dart';
 
 class PinScreen extends StatefulWidget {
   const PinScreen({super.key});
@@ -15,7 +17,8 @@ class PinScreen extends StatefulWidget {
 
 class _PinScreenState extends State<PinScreen> {
   static const _secureStorage = FlutterSecureStorage();
-  static const _pinKey = 'mekenet_pin_hash';
+  static const _pinHashKey = 'mekenet_pin_hash';
+  static const _pinSaltKey = 'mekenet_pin_salt';
   static const _hasPinKey = 'mekenet_has_pin';
   static const _failCountKey = 'mekenet_pin_fails';
   static const _lockoutKey = 'mekenet_pin_lockout';
@@ -35,6 +38,8 @@ class _PinScreenState extends State<PinScreen> {
 
   Future<void> _checkExistingPin() async {
     final hasPin = await _secureStorage.read(key: _hasPinKey) == 'true';
+    final savedFails = await _secureStorage.read(key: _failCountKey);
+    _failCount = int.tryParse(savedFails ?? '0') ?? 0;
 
     if (!mounted) return;
 
@@ -59,7 +64,9 @@ class _PinScreenState extends State<PinScreen> {
       appBar: AppBar(
         title: Text(
           _isSettingPin
-              ? (_isConfirming ? AppLocalizations.of(context).t('confirmPIN') : AppLocalizations.of(context).t('setPIN'))
+              ? (_isConfirming
+                  ? AppLocalizations.of(context).t('confirmPIN')
+                  : AppLocalizations.of(context).t('setPIN'))
               : AppLocalizations.of(context).t('enterPIN'),
         ),
         backgroundColor: const Color(0xFF0A8E48),
@@ -81,17 +88,20 @@ class _PinScreenState extends State<PinScreen> {
               const SizedBox(height: 12),
               Text(
                 _isSettingPin
-                    ? (_isConfirming ? AppLocalizations.of(context).t('confirmYourPIN') : AppLocalizations.of(context).t('createYourPIN'))
-                    : 'Enter your PIN',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ? (_isConfirming
+                        ? AppLocalizations.of(context).t('confirmYourPIN')
+                        : AppLocalizations.of(context).t('createYourPIN'))
+                    : AppLocalizations.of(context).t('enterPIN'),
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
                 _isSettingPin
                     ? (_isConfirming
-                        ? 'Enter your 4-digit PIN again'
-                        : 'Set a 4-digit PIN to secure your data')
-                    : 'Please enter your 4-digit PIN',
+                        ? AppLocalizations.of(context).t('confirmYourPIN')
+                        : AppLocalizations.of(context).t('createYourPIN'))
+                    : AppLocalizations.of(context).t('enterPIN'),
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
@@ -116,7 +126,8 @@ class _PinScreenState extends State<PinScreen> {
                       _isConfirming = false;
                     });
                   },
-                  child: Text(AppLocalizations.of(context).t('clearAndStartOver')),
+                  child:
+                      Text(AppLocalizations.of(context).t('clearAndStartOver')),
                 ),
             ],
           ),
@@ -139,7 +150,8 @@ class _PinScreenState extends State<PinScreen> {
           height: 16,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: length > index ? const Color(0xFF0A8E48) : Colors.grey[300],
+            color:
+                length > index ? const Color(0xFF0A8E48) : Colors.grey[300],
           ),
         );
       }),
@@ -152,12 +164,15 @@ class _PinScreenState extends State<PinScreen> {
       children: numbers.map((number) {
         return Expanded(
           child: GestureDetector(
-            onTap: number.isEmpty ? null : () => _handleNumberTap(number),
+            onTap:
+                number.isEmpty ? null : () => _handleNumberTap(number),
             child: Container(
               height: 60,
               margin: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: number.isEmpty ? Colors.transparent : Colors.grey[100],
+                color: number.isEmpty
+                    ? Colors.transparent
+                    : Colors.grey[100],
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -201,7 +216,9 @@ class _PinScreenState extends State<PinScreen> {
               _confirmPin = '';
               _isConfirming = false;
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppLocalizations.of(context).t('pinMismatch'))),
+                SnackBar(
+                    content:
+                        Text(AppLocalizations.of(context).t('pinMismatch'))),
               );
             }
           }
@@ -226,7 +243,8 @@ class _PinScreenState extends State<PinScreen> {
       if (_isSettingPin) {
         if (_isConfirming) {
           if (_confirmPin.isNotEmpty) {
-            _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1);
+            _confirmPin =
+                _confirmPin.substring(0, _confirmPin.length - 1);
           }
         } else {
           if (_pin.isNotEmpty) {
@@ -241,15 +259,27 @@ class _PinScreenState extends State<PinScreen> {
     });
   }
 
-  String _hashPin(String pin) {
-    final bytes = utf8.encode('mekenet_salt_$pin');
+  /// Generate a random 16-char hex salt.
+  String _generateSalt() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// Hash PIN with per-user salt: SHA-256(salt + pin).
+  String _hashPinWithSalt(String pin, String salt) {
+    final bytes = utf8.encode('$salt$pin');
     return sha256.convert(bytes).toString();
   }
 
   Future<void> _savePinAndGoHome() async {
-    final hash = _hashPin(_pin);
-    await _secureStorage.write(key: _pinKey, value: hash);
+    final salt = _generateSalt();
+    final hash = _hashPinWithSalt(_pin, salt);
+
+    await _secureStorage.write(key: _pinSaltKey, value: salt);
+    await _secureStorage.write(key: _pinHashKey, value: hash);
     await _secureStorage.write(key: _hasPinKey, value: 'true');
+    await _secureStorage.write(key: _failCountKey, value: '0');
 
     if (!mounted) return;
 
@@ -260,27 +290,37 @@ class _PinScreenState extends State<PinScreen> {
   }
 
   Future<void> _checkLoginPin() async {
+    // --- Check lockout (persisted in secure storage) ---
     final lockoutStr = await _secureStorage.read(key: _lockoutKey);
     if (lockoutStr != null) {
-      final lockoutUntil = DateTime.parse(lockoutStr);
-      if (DateTime.now().isBefore(lockoutUntil)) {
+      final lockoutUntil = DateTime.tryParse(lockoutStr);
+      if (lockoutUntil != null && DateTime.now().isBefore(lockoutUntil)) {
         final remaining = lockoutUntil.difference(DateTime.now()).inSeconds;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${AppLocalizations.of(context).t('tryAgainIn')} $remaining ${AppLocalizations.of(context).t('seconds')}.')),
+            SnackBar(
+              content: Text(
+                '${AppLocalizations.of(context).t('tryAgainIn')} $remaining '
+                '${AppLocalizations.of(context).t('seconds')}.',
+              ),
+            ),
           );
           setState(() => _pin = '');
         }
         return;
       }
       await _secureStorage.delete(key: _lockoutKey);
+      _failCount = 0;
       await _secureStorage.write(key: _failCountKey, value: '0');
     }
 
-    final savedHash = await _secureStorage.read(key: _pinKey);
-    final inputHash = _hashPin(_pin);
+    // --- Verify PIN ---
+    final savedSalt = await _secureStorage.read(key: _pinSaltKey) ?? '';
+    final savedHash = await _secureStorage.read(key: _pinHashKey);
+    final inputHash = _hashPinWithSalt(_pin, savedSalt);
 
     if (inputHash == savedHash) {
+      _failCount = 0;
       await _secureStorage.write(key: _failCountKey, value: '0');
       if (!mounted) return;
 
@@ -294,16 +334,29 @@ class _PinScreenState extends State<PinScreen> {
 
       if (_failCount >= 5) {
         final lockoutUntil = DateTime.now().add(const Duration(seconds: 30));
-        await _secureStorage.write(key: _lockoutKey, value: lockoutUntil.toIso8601String());
+        await _secureStorage.write(
+          key: _lockoutKey,
+          value: lockoutUntil.toIso8601String(),
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${AppLocalizations.of(context).t('lockedFor')} 30 ${AppLocalizations.of(context).t('lockoutSeconds')}')),
+            SnackBar(
+              content: Text(
+                '${AppLocalizations.of(context).t('lockedFor')} 30 '
+                '${AppLocalizations.of(context).t('lockoutSeconds')}',
+              ),
+            ),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${AppLocalizations.of(context).t('incorrectPIN')}. $_failCount/5 ${AppLocalizations.of(context).t('attempts')}.')),
+            SnackBar(
+              content: Text(
+                '${AppLocalizations.of(context).t('incorrectPIN')}. '
+                '$_failCount/5 ${AppLocalizations.of(context).t('attempts')}.',
+              ),
+            ),
           );
         }
       }

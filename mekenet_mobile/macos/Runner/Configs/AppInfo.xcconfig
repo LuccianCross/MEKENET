@@ -8,7 +8,7 @@
 PRODUCT_NAME = mekenet
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.mekenet
+PRODUCT_BUNDLE_IDENTIFIER = com.mekenet.app
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Mekenet. All rights reserved.

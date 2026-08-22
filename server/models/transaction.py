@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, Boolean
+from sqlalchemy import Column, String, Numeric, DateTime
 from sqlalchemy.sql import func
 from db.database import Base
 
@@ -8,7 +8,7 @@ class Transaction(Base):
 
     id = Column(String, primary_key=True)
     type = Column(String, nullable=False)  # "income" or "expense"
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
     description = Column(String, nullable=False)
     date = Column(String, nullable=False)  # YYYY-MM-DD
     category = Column(String, default="uncategorized")

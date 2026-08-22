@@ -1,4 +1,4 @@
-package com.example.mekenet
+package com.mekenet.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

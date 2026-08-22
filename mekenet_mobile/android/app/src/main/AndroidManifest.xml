@@ -39,7 +39,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <receiver
-            android:name=".SafeIncomingSmsReceiver"
+            android:name="com.mekenet.app.SafeIncomingSmsReceiver"
             android:permission="android.permission.BROADCAST_SMS"
             android:exported="true">
             <intent-filter>

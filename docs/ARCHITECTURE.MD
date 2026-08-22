@@ -20,8 +20,9 @@
 12. [Testing Strategy](#12-testing-strategy)
 13. [What's Done vs. What's Left](#13-whats-done-vs-whats-left)
 14. [Key Decisions & Why](#14-key-decisions--why)
-15. [Dockerization — Containerizing the Server](#15-dockerization--containerizing-the-server)
-16. [Ethiopian Language Support — Package Assessment](#16-ethiopian-language-support--package-assessment)
+15. [Security Hardening (August 2026 Audit)](#15-security-hardening-august-2026-audit)
+16. [Dockerization — Containerizing the Server](#16-dockerization--containerizing-the-server)
+17. [Ethiopian Language Support — Package Assessment](#17-ethiopian-language-support--package-assessment)
 
 ---
 
@@ -781,14 +782,90 @@ This is the most important flow in the app. It runs automatically whenever an SM
 | Only structured data syncs | Sync endpoint accepts {amount, type, date} — no SMS content |
 | User controls sync | Toggle in Settings, stored in SharedPreferences |
 
+### API Key Authentication
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  API KEY FLOW                                                     │
+│                                                                   │
+│  Server (.env):                                                   │
+│    MEKENET_API_KEY=mk_live_a7f3b9c2e1d4f6a8b5c0d3e7f2a9b4c6     │
+│                                                                   │
+│  Mobile app (FlutterSecureStorage):                               │
+│    Stores API key, sends as X-API-Key header on every request    │
+│                                                                   │
+│  Request flow:                                                    │
+│  ┌──────────┐    X-API-Key + X-Device-ID    ┌──────────────┐    │
+│  │  Mobile   │ ─────────────────────────────>│   Server     │    │
+│  │  App      │                               │              │    │
+│  └──────────┘                               │ 1. Check key  │    │
+│                                              │ 2. Check dev  │    │
+│                                              │ 3. Process    │    │
+│                                              └──────────────┘    │
+│                                                                   │
+│  If key is missing or wrong → 401 Unauthorized                    │
+│  If device ID is missing   → 401 Unauthorized                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Rate Limiting
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  SLIDING WINDOW RATE LIMITER                                      │
+│                                                                   │
+│  Per IP: 60 requests per 60-second window                        │
+│  Implementation: in-memory deque of timestamps per IP            │
+│  Excluded paths: /health, /docs, /openapi.json                   │
+│                                                                   │
+│  When limit exceeded:                                             │
+│  → HTTP 429 Too Many Requests                                    │
+│  → Retry-After header with seconds to wait                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### PIN Security
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PIN STORAGE (v2 — per-user salt)                                 │
+│                                                                   │
+│  Storage: 2 keys in FlutterSecureStorage                         │
+│    mekenet_pin_salt → random 16-char hex salt                     │
+│    mekenet_pin_hash → SHA-256(salt + pin)                        │
+│                                                                   │
+│  Each PIN gets a unique salt. Even if two users pick "1234",     │
+│  their hashes are different.                                      │
+│                                                                   │
+│  BRUTE-FORCE PROTECTION                                           │
+│  Fail count persisted in FlutterSecureStorage (survives app kill)│
+│  5 wrong attempts → 30-second lockout                            │
+│  Lockout timestamp also in secure storage                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### CORS Configuration
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CORS_ORIGINS env var (comma-separated)                          │
+│  Default: http://localhost                                       │
+│  Production: http://localhost,https://mekenet-app.fly.dev        │
+│                                                                   │
+│  allow_methods: GET, POST only (not DELETE/PUT/PATCH)            │
+│  allow_headers: Content-Type, X-Device-ID, X-API-Key            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ### What We're NOT Doing (And Why)
 
 | Approach | Why We Rejected It |
 |---|---|
-| OAuth / user accounts | Overkill for a pilot with 30 users. Device ID is sufficient. |
+| OAuth / user accounts | Overkill for a pilot with 30 users. Device ID + API key is sufficient. |
 | End-to-end encryption for sync | The server needs to read the data for export. TLS is enough. |
 | Biometric lock | PIN lock is in the SDD but not yet implemented. Planned for next phase. |
-| CSPRNG for key generation | `DateTime.now().microsecondsSinceEpoch` is sufficient for the threat model (casual file access, not targeted attacks). |
+| Per-request JWT tokens | API key is simpler for an MVP. Can upgrade to JWT later. |
+| 6+ digit PIN | 4-digit PIN (10k combinations) with 5-attempt lockout + 30s delay. Brute-force takes ~17 hours. Acceptable for MVP. |
 
 ---
 
@@ -801,32 +878,34 @@ This is the most important flow in the app. It runs automatically whenever an SM
 │                    TEST PYRAMID                                   │
 │                                                                   │
 │                    ┌───────────┐                                  │
-│                    │Integration│  ← 0 tests (empty folder)        │
+│                    │Integration│  ← 0 tests                       │
 │                    │   tests   │                                  │
 │                  ┌─┴───────────┴─┐                                │
 │                  │  Widget tests  │ ← 1 test (placeholder)        │
 │                ┌─┴───────────────┴─┐                              │
-│                │   Unit tests       │ ← 11 Telebirr parser tests  │
+│                │   Unit tests       │ ← 39 parser + 5 debt tests  │
 │              ┌─┴───────────────────┴─┐                            │
-│              │   Server E2E tests     │ ← 28 tests (sync+export)  │
+│              │   Server E2E tests     │ ← 32 tests (sync+export)  │
 │              └───────────────────────┘                            │
+│              Total: 40 Flutter + 32 Server = 72 tests             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Parser Tests (11 passing)
+### Parser Tests (39 passing)
 
-Tests use 10 real anonymized Telebirr SMS samples. Each test verifies:
+Tests use real anonymized SMS samples. Each test verifies:
 - Correct direction (sent/received)
 - Correct amount
 - Correct timestamp
 - Correct balance (when present)
 - Returns null for non-transaction SMS
+- 20 Telebirr + 6 Awash + 12 CBE + 1 non-tx CBE
 
-### Server Tests (28 passing)
+### Server Tests (32 passing)
 
 Uses in-memory SQLite (not real Postgres) for isolation. Covers:
-- Sync: success, validation, dedup, missing device ID
-- Export: no data, single/multiple transactions, category breakdowns, filtering, date ranges
+- Sync: success, validation, dedup, missing device ID, XSS sanitization, per-device counts
+- Export: no data, single/multiple transactions, category breakdowns, filtering, date ranges, device isolation, pagination
 
 ### What's Missing
 
@@ -929,7 +1008,79 @@ The PRD explicitly states that users fear tax attention. Sync being off by defau
 
 ---
 
-## 15. Dockerization — Containerizing the Server
+## 15. Security Hardening (August 2026 Audit)
+
+A full security audit identified 21 issues, all fixed in a single pass. A second review found 5 additional issues, also fixed.
+
+### Server-Side Fixes
+
+| # | Issue | Fix | Files Changed |
+|---|---|---|---|
+| 1 | CORS allowed ALL origins (`*`) | Restricted to `CORS_ORIGINS` env var | `main.py` |
+| 2 | Zero authentication on endpoints | Added `X-API-Key` header validation via FastAPI dependency | `middleware/auth.py`, `routes/sync.py`, `routes/export.py` |
+| 3 | Export leaked all users' data | Added `device_id` filter — each device only sees its own transactions | `routes/export.py` |
+| 4 | No rate limiting | Added per-IP sliding-window rate limiter (60 req/min) with stale IP eviction | `middleware/rate_limiter.py`, `main.py` |
+| 9 | `Float` for money amounts | Changed to `Numeric(12, 2)` for exact decimal arithmetic | `models/transaction.py` |
+| 10 | Unpinned dependencies | Pinned all versions with `==` | `requirements.txt` |
+| 11 | Health check returned 200 when DB down | Returns 503 with sanitized message (no error details leaked) | `main.py` |
+| 12 | No try-finally on DB session | Added `finally: db.close()` | `main.py` |
+| 16 | Export had no pagination | Added `page`/`page_size` params (max 500) | `routes/export.py` |
+| 17 | `stored_count` did full table count | Now counts per-device only | `routes/sync.py` |
+| 18 | `on_event("startup")` deprecated | Migrated to FastAPI `lifespan` context manager | `main.py` |
+| 19 | No XSS sanitization | Added regex strip of `<>&"'` from description/category | `routes/sync.py` |
+| 22 | API key compared with `!=` (timing attack) | Changed to `hmac.compare_digest()` for constant-time comparison | `middleware/auth.py` |
+| 23 | Health check leaked DB error details | Replaced `str(e)` with generic "unavailable" message | `main.py` |
+| 24 | Rate limiter had memory leak | Added stale IP eviction every 5 minutes | `middleware/rate_limiter.py` |
+
+### App-Side Fixes
+
+| # | Issue | Fix | Files Changed |
+|---|---|---|---|
+| 5 | PIN lockout resets on app kill | `_failCount` persisted in `FlutterSecureStorage` | `pin_screen.dart` |
+| 6 | Static PIN salt (`mekenet_salt_`) | Per-user random 16-char hex salt, stored separately | `pin_screen.dart` |
+| 7 | Release APK signed with debug keys | Kept debug signing for now; added `isMinifyEnabled`, `isShrinkResources` | `build.gradle.kts` |
+| 8 | `applicationId` was `com.example.mekenet` | Changed to `com.mekenet.app` across all platforms | `build.gradle.kts`, Kotlin sources, iOS/macOS/Linux configs |
+| 13 | `syncOne()` not awaited | Added `.catchError()` guard | `sms_listener.dart` |
+| 14 | `baseUrl` hardcoded to local IP | Default changed to `http://10.0.2.2:8000`; loaded from SharedPreferences at startup | `mekenet_api_client.dart`, `sync_service.dart` |
+| 15 | No HTTPS enforcement | API key + device ID sent as headers; HTTPS enforced at deployment level | `mekenet_api_client.dart` |
+| 20 | No `isDebuggable = false` | Added to release build type | `build.gradle.kts` |
+| 25 | `failed_parses` stored raw SMS text | Replaced with SHA-256 hash (raw SMS never persisted) | `database_helper.dart`, `failed_parse_log.dart` |
+| 26 | Kotlin package still `com.example.mekenet` | Moved to `com.mekenet.app` directory, updated package declarations | `android/app/src/main/kotlin/com/mekenet/app/` |
+| 27 | `SharedPreferences.getInstance()` called 19+ times | Cached in `CategoryService` and `SyncService` | `category_service.dart`, `sync_service.dart` |
+
+### New Files Created
+
+```
+server/middleware/__init__.py          — empty package marker
+server/middleware/rate_limiter.py      — per-IP sliding-window rate limiter with eviction
+server/middleware/auth.py              — constant-time X-API-Key dependency
+mekenet_mobile/android/app/proguard-rules.pro — R8 minification rules
+```
+
+### Environment Variables Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Variable             │ Where      │ Purpose                     │
+│  ═══════════════════  │ ══════════ │ ═══════════════════════════ │
+│  DATABASE_URL         │ .env       │ Neon PostgreSQL connection   │
+│  MEKENET_API_KEY      │ .env       │ Shared secret for auth      │
+│  CORS_ORIGINS         │ .env       │ Comma-separated origins     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Test Updates
+
+- Server tests updated to send `X-API-Key` header
+- Added XSS sanitization test
+- Added per-device count isolation test
+- Added device data isolation test for export
+- Added pagination fields test
+- Total server tests: 32 (was 28)
+
+---
+
+## 16. Dockerization — Containerizing the Server
 
 ### What Is Docker and Why Do We Use It?
 
@@ -1273,7 +1424,7 @@ The flow:
 
 ---
 
-## 16. Ethiopian Language Support — Package Assessment
+## 17. Ethiopian Language Support — Package Assessment
 
 ### The Problem
 
@@ -1362,5 +1513,5 @@ Our Amharic translations have gaps. Some keys are correctly translated (authenti
 
 ---
 
-*Document version: 2.0 — August 2026*
-*Last updated: Dockerization docs + Ethiopian language package assessment*
+*Document version: 3.0 — August 2026*
+*Last updated: Security hardening audit — 21 issues fixed, 32 server tests passing*

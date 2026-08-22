@@ -20,7 +20,7 @@ class DatabaseHelper {
 
   static const String _databaseName = 'mekenet.db';
 
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   Future<Database> get database async {
     if (_database != null) {
@@ -112,6 +112,11 @@ class DatabaseHelper {
         "ALTER TABLE debts ADD COLUMN type TEXT NOT NULL DEFAULT 'owed_to_me'",
       );
     }
+
+    if (oldVersion < 3) {
+      await db.execute("DROP TABLE IF EXISTS failed_parses");
+      await _createFailedParsesTable(db);
+    }
   }
 
   Future<void> _createTransactionsTable(
@@ -180,7 +185,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS failed_parses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        raw_sms TEXT NOT NULL,
+        raw_sms_hash TEXT NOT NULL,
         sender TEXT,
         reason TEXT NOT NULL,
         created_at INTEGER NOT NULL

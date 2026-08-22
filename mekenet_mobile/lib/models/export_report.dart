@@ -67,6 +67,9 @@ class ExportReport {
   final List<TransactionSummary> transactions;
   final String generatedAt;
   final Map<String, dynamic> filtersApplied;
+  final int page;
+  final int pageSize;
+  final int totalCount;
 
   const ExportReport({
     required this.summary,
@@ -75,6 +78,9 @@ class ExportReport {
     required this.transactions,
     required this.generatedAt,
     required this.filtersApplied,
+    this.page = 1,
+    this.pageSize = 100,
+    this.totalCount = 0,
   });
 
   factory ExportReport.fromJson(Map<String, dynamic> json) {
@@ -91,6 +97,9 @@ class ExportReport {
           .toList(),
       generatedAt: json['generated_at'] as String,
       filtersApplied: json['filters_applied'] as Map<String, dynamic>? ?? {},
+      page: json['page'] as int? ?? 1,
+      pageSize: json['page_size'] as int? ?? 100,
+      totalCount: json['total_count'] as int? ?? 0,
     );
   }
 

@@ -1,15 +1,19 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import '../../database/database_helper.dart';
 
 class FailedParseLog {
   final int? id;
-  final String rawSms;
+  final String rawSmsHash;
   final String? sender;
   final String reason;
   final DateTime createdAt;
 
   FailedParseLog({
     this.id,
-    required this.rawSms,
+    required this.rawSmsHash,
     this.sender,
     required this.reason,
     DateTime? createdAt,
@@ -17,11 +21,15 @@ class FailedParseLog {
 
   Map<String, dynamic> toMap() {
     return {
-      'raw_sms': rawSms,
+      'raw_sms_hash': rawSmsHash,
       'sender': sender,
       'reason': reason,
       'created_at': createdAt.millisecondsSinceEpoch,
     };
+  }
+
+  static String _hash(String text) {
+    return sha256.convert(utf8.encode(text)).toString();
   }
 
   static Future<void> save(
@@ -34,7 +42,7 @@ class FailedParseLog {
     await db.insert(
       'failed_parses',
       FailedParseLog(
-        rawSms: rawSms,
+        rawSmsHash: _hash(rawSms),
         sender: sender,
         reason: reason,
       ).toMap(),
@@ -52,7 +60,7 @@ class FailedParseLog {
     return rows.map((row) {
       return FailedParseLog(
         id: row['id'] as int?,
-        rawSms: row['raw_sms'] as String,
+        rawSmsHash: row['raw_sms_hash'] as String,
         sender: row['sender'] as String?,
         reason: row['reason'] as String,
         createdAt: DateTime.fromMillisecondsSinceEpoch(

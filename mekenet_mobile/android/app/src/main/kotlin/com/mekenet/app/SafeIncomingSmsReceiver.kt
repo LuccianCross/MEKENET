@@ -1,4 +1,4 @@
-package com.example.mekenet
+package com.mekenet.app
 
 import android.content.BroadcastReceiver
 import android.content.Context

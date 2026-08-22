@@ -109,8 +109,10 @@ Future<void> _handleSmsStatic(
     await RepositoryProvider.transaction.save(transaction);
     SmsListener.transactionStream.add(null);
 
-    // Sync to server if enabled
-    SyncService.instance.syncOne(transaction);
+    // Sync to server if enabled — fire-and-forget with error guard
+    SyncService.instance.syncOne(transaction).catchError((e) {
+      logger.w('BG: Sync failed for transaction', error: e);
+    });
 
     logger.i('BG: $bankName transaction saved: $direction Br${parsed.amount}');
   } catch (e) {

@@ -16,6 +16,12 @@ class CategoryService {
   static const _incomeCategoriesKey = 'custom_income_categories';
   static const _usageKey = 'category_usage';
   static final _log = Logger();
+  static SharedPreferences? _cachedPrefs;
+
+  static Future<SharedPreferences> get _prefs async {
+    _cachedPrefs ??= await _prefs;
+    return _cachedPrefs!;
+  }
 
   // Default expense categories
   static const List<String> defaultExpenseCategories = [
@@ -49,7 +55,7 @@ class CategoryService {
     final defaults =
         direction == 'income' ? defaultIncomeCategories : defaultExpenseCategories;
 
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     final customJson = prefs.getString(key);
     final custom = customJson != null
         ? List<String>.from(jsonDecode(customJson) as List)
@@ -64,7 +70,7 @@ class CategoryService {
     final defaults =
         direction == 'income' ? defaultIncomeCategories : defaultExpenseCategories;
 
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     final customJson = prefs.getString(key);
     final custom = customJson != null
         ? List<String>.from(jsonDecode(customJson) as List)
@@ -86,7 +92,7 @@ class CategoryService {
     final key =
         direction == 'income' ? _incomeCategoriesKey : _categoriesKey;
 
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     final customJson = prefs.getString(key);
     final custom = customJson != null
         ? List<String>.from(jsonDecode(customJson) as List)
@@ -99,7 +105,7 @@ class CategoryService {
 
   /// Records usage with direction-aware key.
   Future<void> recordUsage(String category, {String direction = 'expense'}) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     final usageJson = prefs.getString(_usageKey);
     final usage = usageJson != null
         ? Map<String, int>.from(jsonDecode(usageJson) as Map)
@@ -112,7 +118,7 @@ class CategoryService {
 
   /// Returns the most-used category for the given direction.
   Future<String?> getMostUsedCategory({String direction = 'expense'}) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     final usageJson = prefs.getString(_usageKey);
     if (usageJson == null) return null;
 
@@ -133,7 +139,7 @@ class CategoryService {
   }
 
   Future<Map<String, int>> getUsageStats() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     final usageJson = prefs.getString(_usageKey);
     if (usageJson == null) return {};
 
@@ -141,7 +147,7 @@ class CategoryService {
   }
 
   Future<void> clearUsage() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     await prefs.remove(_usageKey);
     _log.i('[Category] Cleared usage data');
   }
