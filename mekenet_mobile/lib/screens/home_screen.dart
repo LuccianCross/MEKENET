@@ -6,6 +6,8 @@ import '../l10n/app_localizations.dart';
 import '../models/transaction.dart';
 import '../repositories/repository_provider.dart';
 import '../services/sms/sms_listener.dart';
+import '../services/category_service.dart';
+import 'transaction_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -185,8 +187,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             const Icon(Icons.error_outline, size: 50, color: Colors.red),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Could not load data',
+                            Text(
+                              AppLocalizations.of(context).t('couldNotLoadData'),
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
@@ -253,6 +255,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (_recentTransactions.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const TransactionHistoryScreen(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              AppLocalizations.of(context).t('viewAll'),
+                              style: TextStyle(
+                                color: const Color(0xFF0A8E48),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -301,22 +321,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             date.month == now.month &&
                             date.day == now.day) {
                           dateLabel =
-                              'Today, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                              '${AppLocalizations.of(context).t('today')}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
                         } else if (date.year == now.year &&
                             date.month == now.month &&
                             date.day == now.day - 1) {
-                          dateLabel = 'Yesterday';
+                          dateLabel = AppLocalizations.of(context).t('yesterday');
                         } else {
                           dateLabel =
                               '${date.day}/${date.month}/${date.year}';
                         }
 
-                        return _buildTransactionTile(
-                          tx.source.toUpperCase(),
-                          dateLabel,
-                          tx.amount,
-                          isIncome,
-                        );
+                        return _buildTransactionTile(tx, dateLabel, isIncome);
                       }),
                   ],
                 ),
@@ -460,9 +475,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildProfitDetail('Income', income, Icons.arrow_upward),
+              _buildProfitDetail(AppLocalizations.of(context).t('income'), income, Icons.arrow_upward),
               const SizedBox(width: 24),
-              _buildProfitDetail('Expenses', expenses, Icons.arrow_downward),
+              _buildProfitDetail(AppLocalizations.of(context).t('expenses'), expenses, Icons.arrow_downward),
             ],
           ),
           const SizedBox(height: 12),
@@ -519,11 +534,11 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Container(width: 12, height: 12, color: const Color(0xFF0A8E48)),
               const SizedBox(width: 4),
-              const Text('Income', style: TextStyle(fontSize: 11)),
+              Text(AppLocalizations.of(context).t('income'), style: TextStyle(fontSize: 11)),
               const SizedBox(width: 12),
               Container(width: 12, height: 12, color: const Color(0xFFE53935)),
               const SizedBox(width: 4),
-              const Text('Expenses', style: TextStyle(fontSize: 11)),
+              Text(AppLocalizations.of(context).t('expenses'), style: TextStyle(fontSize: 11)),
             ],
           ),
           const SizedBox(height: 12),
@@ -754,16 +769,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTransactionTile(
-    String title,
+    Transaction tx,
     String date,
-    double amount,
     bool isIncome,
   ) {
     final color =
         isIncome ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
     final icon =
         isIncome ? Icons.arrow_upward : Icons.arrow_downward;
-    final label = isIncome ? 'Income' : 'Expense';
+    final label = isIncome ? AppLocalizations.of(context).t('incomeShort') : AppLocalizations.of(context).t('expenseShort');
+    final category = tx.category ?? '';
+    final title = tx.source.toUpperCase();
+    final amount = tx.amount;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -805,6 +822,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.grey[500],
                   ),
                 ),
+                if (category.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => _editCategory(tx),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[400],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        Icon(Icons.edit, size: 10, color: Colors.grey[400]),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -839,6 +874,55 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _editCategory(Transaction tx) async {
+    final direction = tx.direction;
+    final categories = await CategoryService.instance.getCategories(direction: direction);
+    final current = tx.category ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '${AppLocalizations.of(context).t('category')} — ${tx.source.toUpperCase()}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              ...categories.map((cat) => ListTile(
+                    title: Text(cat),
+                    trailing: cat == current
+                        ? const Icon(Icons.check, color: Color(0xFF0A8E48))
+                        : null,
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final updated = Transaction(
+                        id: tx.id,
+                        direction: tx.direction,
+                        amount: tx.amount,
+                        source: tx.source,
+                        counterpartyMasked: tx.counterpartyMasked,
+                        category: cat,
+                        timestamp: tx.timestamp,
+                        synced: false,
+                        rawSmsHash: tx.rawSmsHash,
+                      );
+                      await RepositoryProvider.transaction.update(updated);
+                      _loadData();
+                    },
+                  )),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 }

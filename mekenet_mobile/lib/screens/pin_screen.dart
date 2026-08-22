@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 
 import '../main.dart';
+import '../l10n/app_localizations.dart';
 
 class PinScreen extends StatefulWidget {
   const PinScreen({super.key});
@@ -58,8 +59,8 @@ class _PinScreenState extends State<PinScreen> {
       appBar: AppBar(
         title: Text(
           _isSettingPin
-              ? (_isConfirming ? 'Confirm PIN' : 'Set PIN')
-              : 'Enter PIN',
+              ? (_isConfirming ? AppLocalizations.of(context).t('confirmPIN') : AppLocalizations.of(context).t('setPIN'))
+              : AppLocalizations.of(context).t('enterPIN'),
         ),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
@@ -80,7 +81,7 @@ class _PinScreenState extends State<PinScreen> {
               const SizedBox(height: 12),
               Text(
                 _isSettingPin
-                    ? (_isConfirming ? 'Confirm your PIN' : 'Create your PIN')
+                    ? (_isConfirming ? AppLocalizations.of(context).t('confirmYourPIN') : AppLocalizations.of(context).t('createYourPIN'))
                     : 'Enter your PIN',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
@@ -115,7 +116,7 @@ class _PinScreenState extends State<PinScreen> {
                       _isConfirming = false;
                     });
                   },
-                  child: const Text('Clear and start over'),
+                  child: Text(AppLocalizations.of(context).t('clearAndStartOver')),
                 ),
             ],
           ),
@@ -200,7 +201,7 @@ class _PinScreenState extends State<PinScreen> {
               _confirmPin = '';
               _isConfirming = false;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PINs do not match. Try again.')),
+                SnackBar(content: Text(AppLocalizations.of(context).t('pinMismatch'))),
               );
             }
           }
@@ -266,7 +267,7 @@ class _PinScreenState extends State<PinScreen> {
         final remaining = lockoutUntil.difference(DateTime.now()).inSeconds;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Too many attempts. Try again in $remaining seconds.')),
+            SnackBar(content: Text('${AppLocalizations.of(context).t('tryAgainIn')} $remaining ${AppLocalizations.of(context).t('seconds')}.')),
           );
           setState(() => _pin = '');
         }
@@ -296,13 +297,13 @@ class _PinScreenState extends State<PinScreen> {
         await _secureStorage.write(key: _lockoutKey, value: lockoutUntil.toIso8601String());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Too many attempts. Locked for 30 seconds.')),
+            SnackBar(content: Text('${AppLocalizations.of(context).t('lockedFor')} 30 ${AppLocalizations.of(context).t('lockoutSeconds')}')),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Incorrect PIN. $_failCount/5 attempts.')),
+            SnackBar(content: Text('${AppLocalizations.of(context).t('incorrectPIN')}. $_failCount/5 ${AppLocalizations.of(context).t('attempts')}.')),
           );
         }
       }

@@ -4,6 +4,7 @@
 ///   1. Sync toggle — opt-in, stored in SharedPreferences via SyncService.
 ///   2. Export Report — calls MekenetApiClient.exportReport() and shows
 ///      a formatted bottom sheet with real backend data.
+library;
 
 import 'dart:convert';
 import 'dart:io';
@@ -27,6 +28,7 @@ import '../services/parser/telebirr_sms_parser.dart';
 import '../services/parser/cbe_sms_parser.dart';
 import '../services/parser/awash_sms_parser.dart';
 import '../services/parser/parsed_bank_sms.dart';
+import '../l10n/app_localizations.dart';
 import '../services/parser/failed_parse_log.dart';
 import '../repositories/repository_provider.dart';
 import '../main.dart';
@@ -87,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(AppLocalizations.of(context).t('settings')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -164,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const Text('Allow Access'),
+                          child: Text(AppLocalizations.of(context).t('allowAccess')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -172,7 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        child: const Text('Not now'),
+                        child: Text(AppLocalizations.of(context).t('notNow')),
                       ),
                     ],
                   ),
@@ -219,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // ── Sync toggle ──────────────────────────────────────────
                   ListTile(
                     leading: const Icon(Icons.sync, color: Color(0xFF0A8E48)),
-                    title: const Text('Sync to cloud'),
+                    title: Text(AppLocalizations.of(context).t('syncToCloud')),
                     subtitle: Text(
                       _syncEnabled
                           ? 'Transactions will be backed up'
@@ -234,7 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : Switch(
                             value: _syncEnabled,
                             onChanged: _toggleSync,
-                            activeColor: const Color(0xFF0A8E48),
+                            activeThumbColor: const Color(0xFF0A8E48),
                           ),
                   ),
                   const Divider(height: 1),
@@ -243,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (_syncEnabled) ...[
                     ListTile(
                       leading: const Icon(Icons.dns, color: Color(0xFF0A8E48)),
-                      title: const Text('Server URL'),
+                      title: Text(AppLocalizations.of(context).t('serverUrl')),
                       subtitle: Text(MekenetApiClient.baseUrl),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () => _showServerUrlDialog(context),
@@ -255,8 +257,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ListTile(
                     leading: const Icon(Icons.upload_file,
                         color: Color(0xFF0A8E48)),
-                    title: const Text('Export Report'),
-                    subtitle: const Text('Send report to bank'),
+                    title: Text(AppLocalizations.of(context).t('exportReport')),
+                    subtitle: Text(AppLocalizations.of(context).t('sendReportToBank')),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showExportDialog(context),
                   ),
@@ -266,8 +268,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ListTile(
                     leading: const Icon(Icons.category,
                         color: Color(0xFF0A8E48)),
-                    title: const Text('Manage Categories'),
-                    subtitle: const Text('Add or remove expense categories'),
+                    title: Text(AppLocalizations.of(context).t('manageCategories')),
+                    subtitle: Text(AppLocalizations.of(context).t('addOrRemoveCategories')),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showCategoryManager(context),
                   ),
@@ -276,7 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // ── Language preference ──────────────────────────────
                   ListTile(
                     leading: const Icon(Icons.language, color: Color(0xFF0A8E48)),
-                    title: const Text('Language'),
+                    title: Text(AppLocalizations.of(context).t('language')),
                     subtitle: Text(_currentLang == 'am' ? 'Amharic' : 'English'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showLanguageDialog(context),
@@ -296,8 +298,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // ── Change PIN tile ─────────────────────────────────────
                   ListTile(
                     leading: const Icon(Icons.lock_reset, color: Color(0xFF0A8E48)),
-                    title: const Text('Change PIN'),
-                    subtitle: const Text('Update your security PIN'),
+                    title: Text(AppLocalizations.of(context).t('changePIN')),
+                    subtitle: Text(AppLocalizations.of(context).t('updatePINSubtitle')),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showChangePinDialog(context),
                   ),
@@ -306,8 +308,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Debug SMS tile
                   ListTile(
                     leading: const Icon(Icons.bug_report, color: Colors.orange),
-                    title: const Text('Debug SMS'),
-                    subtitle: const Text('Test each SMS pipeline step'),
+                    title: Text(AppLocalizations.of(context).t('debugSMS')),
+                    subtitle: Text(AppLocalizations.of(context).t('debugSMSSubtitle')),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _runSmsDebug(context),
                   ),
@@ -380,7 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
 
                   // Type filter
-                  const Text('Type',
+                  Text(AppLocalizations.of(context).t('type'),
                       style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Wrap(
@@ -413,7 +415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 48,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.download),
-                      label: const Text('Get Report'),
+                      label: Text(AppLocalizations.of(context).t('getReport')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0A8E48),
                         foregroundColor: Colors.white,
@@ -583,7 +585,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _shareReport(context, report),
                           icon: const Icon(Icons.share),
-                          label: const Text('Share'),
+                          label: Text(AppLocalizations.of(context).t('share')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -591,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _saveCsvToFile(context, report),
                           icon: const Icon(Icons.save_alt),
-                          label: const Text('Save CSV'),
+                          label: Text(AppLocalizations.of(context).t('saveCSV')),
                         ),
                       ),
                     ],
@@ -734,7 +736,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Server URL'),
+        title: Text(AppLocalizations.of(context).t('serverUrl')),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
@@ -745,7 +747,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).t('cancel')),
           ),
           TextButton(
             onPressed: () {
@@ -767,7 +769,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }
             },
-            child: const Text('Save', style: TextStyle(color: Color(0xFF0A8E48))),
+            child: Text(AppLocalizations.of(context).t('save'), style: TextStyle(color: Color(0xFF0A8E48))),
           ),
         ],
       ),
@@ -943,11 +945,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).t('cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, controller.text.trim()),
-            child: const Text('Add', style: TextStyle(color: Color(0xFF0A8E48))),
+            child: Text(AppLocalizations.of(context).t('add'), style: TextStyle(color: Color(0xFF0A8E48))),
           ),
         ],
       ),
@@ -964,10 +966,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Select Language'),
+        title: Text(AppLocalizations.of(context).t('selectLanguage')),
         children: [
           RadioListTile<String>(
-            title: const Text('English'),
+            title: Text(AppLocalizations.of(context).t('english')),
             value: 'en',
             groupValue: _currentLang,
             activeColor: const Color(0xFF0A8E48),
@@ -983,7 +985,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           RadioListTile<String>(
-            title: const Text('Amharic'),
+            title: Text(AppLocalizations.of(context).t('amharic')),
             value: 'am',
             groupValue: _currentLang,
             activeColor: const Color(0xFF0A8E48),
@@ -1011,7 +1013,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Change PIN'),
+        title: Text(AppLocalizations.of(context).t('changePIN')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1055,7 +1057,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).t('cancel')),
           ),
           TextButton(
             onPressed: () async {
@@ -1105,7 +1107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }
             },
-            child: const Text('Update', style: TextStyle(color: Color(0xFF0A8E48))),
+            child: Text(AppLocalizations.of(context).t('confirm'), style: TextStyle(color: Color(0xFF0A8E48))),
           ),
         ],
       ),
@@ -1252,7 +1254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('SMS Debug Results'),
+        title: Text(AppLocalizations.of(context).t('debugSMS')),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -1265,7 +1267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context).t('cancel')),
           ),
         ],
       ),

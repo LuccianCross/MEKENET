@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/debt.dart';
@@ -16,6 +15,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
   List<Debt> _owedToMe = [];
   List<Debt> _iOwe = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _error;
   int _selectedTab = 0;
 
@@ -52,6 +52,24 @@ class _DebtsScreenState extends State<DebtsScreen> {
         });
       }
     }
+  }
+
+  Future<void> _refreshSilently() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    try {
+      final results = await Future.wait([
+        RepositoryProvider.debt.getOpenByType('owed_to_me'),
+        RepositoryProvider.debt.getOpenByType('i_owe'),
+      ]);
+      if (mounted) {
+        setState(() {
+          _owedToMe = results[0];
+          _iOwe = results[1];
+        });
+      }
+    } catch (_) {}
+    _isRefreshing = false;
   }
 
   @override
@@ -118,7 +136,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         children: [
                           Expanded(
                             child: _buildSummaryTile(
-                              'Owed to Me',
+                              loc.t('owedToMe'),
                               totalOwedToMe,
                               const Color(0xFF0A8E48),
                               Icons.arrow_downward,
@@ -127,7 +145,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _buildSummaryTile(
-                              'I Owe',
+                              loc.t('iOwe'),
                               totalIOwe,
                               const Color(0xFFE53935),
                               Icons.arrow_upward,
@@ -141,9 +159,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Row(
                         children: [
-                          Expanded(child: _buildTab(0, 'Owed to Me (${_owedToMe.length})')),
+                          Expanded(child: _buildTab(0, '${loc.t('owedToMe')} (${_owedToMe.length})')),
                           const SizedBox(width: 8),
-                          Expanded(child: _buildTab(1, 'I Owe (${_iOwe.length})')),
+                          Expanded(child: _buildTab(1, '${loc.t('iOwe')} (${_iOwe.length})')),
                         ],
                       ),
                     ),
@@ -160,13 +178,13 @@ class _DebtsScreenState extends State<DebtsScreen> {
                                       const SizedBox(height: 12),
                                       Text(
                                         _selectedTab == 0
-                                            ? 'No one owes you yet'
-                                            : 'You don\'t owe anyone',
+                                            ? loc.t('noOneOwesYouYet')
+                                            : loc.t('youDontOweAnyone'),
                                         style: TextStyle(fontSize: 16, color: Colors.grey[500]),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Tap + to add a debt',
+                                        loc.t('tapPlusToAdd'),
                                         style: TextStyle(fontSize: 13, color: Colors.grey[400]),
                                       ),
                                     ],
@@ -175,7 +193,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                               ],
                             )
                           : RefreshIndicator(
-                              onRefresh: _loadData,
+                              onRefresh: _refreshSilently,
                               child: ListView.builder(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 itemCount: currentList.length,
@@ -303,7 +321,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                   ),
                 ),
                 Text(
-                  isPaid ? 'Paid' : _formatDueDate(debt.createdAt),
+                  isPaid ? AppLocalizations.of(context).t('paid') : _formatDueDate(debt.createdAt),
                   style: TextStyle(
                     fontSize: 12,
                     color: isPaid ? const Color(0xFF0A8E48) : Colors.grey[500],
@@ -335,8 +353,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           color: const Color(0xFF0A8E48).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          'Mark Paid',
+                        child: Text(
+                          AppLocalizations.of(context).t('markPaid'),
                           style: TextStyle(
                             fontSize: 10,
                             color: Color(0xFF0A8E48),
@@ -354,8 +372,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         color: const Color(0xFFE53935).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'Delete',
+                      child: Text(
+                        AppLocalizations.of(context).t('delete'),
                         style: TextStyle(
                           fontSize: 10,
                           color: Color(0xFFE53935),
@@ -376,9 +394,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
   String _formatDueDate(DateTime createdAt) {
     final now = DateTime.now();
     final difference = now.difference(createdAt).inDays;
-    if (difference == 0) return 'Added today';
-    if (difference == 1) return 'Added yesterday';
-    return 'Added $difference days ago';
+    if (difference == 0) return AppLocalizations.of(context).t('addedToday');
+    if (difference == 1) return AppLocalizations.of(context).t('addedYesterday');
+    return '$difference ${AppLocalizations.of(context).t('addedDaysAgo')}';
   }
 
   Future<void> _markAsPaid(Debt debt) async {
@@ -406,13 +424,13 @@ class _DebtsScreenState extends State<DebtsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Debt?'),
+        title: Text(AppLocalizations.of(context).t('deleteDebt')),
         content: Text('Remove ${debt.customerName}\'s debt of Br${debt.amount.toStringAsFixed(0)}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context).t('cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context).t('delete'), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -459,7 +477,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Add Debt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(ctx).t('addDebtTitle'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   // Type selector
                   Row(
@@ -480,7 +498,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                'Owes Me',
+                                AppLocalizations.of(ctx).t('owesMe'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: selectedType == 'owed_to_me'
@@ -509,7 +527,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                'I Owe',
+                                AppLocalizations.of(ctx).t('iOwe'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: selectedType == 'i_owe'
@@ -526,8 +544,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: nameController,
-                    decoration: const InputDecoration(
-                      hintText: "Person's name",
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(ctx).t('personsName'),
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.person),
                     ),
@@ -536,8 +554,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                   TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      hintText: 'Amount (Br)',
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(ctx).t('amountBr'),
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.money),
                     ),
@@ -553,7 +571,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
                         if (name.isEmpty || amount == null || amount <= 0) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(content: Text('Please fill in all fields')),
+                            SnackBar(content: Text(AppLocalizations.of(ctx).t('pleaseFillAllFields'))),
                           );
                           return;
                         }
@@ -573,7 +591,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Save'),
+                      child: Text(AppLocalizations.of(ctx).t('save')),
                     ),
                   ),
                 ],

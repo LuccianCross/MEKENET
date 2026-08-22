@@ -2,6 +2,7 @@
 ///
 /// Dart mirror of the backend's SyncResponse Pydantic model.
 /// Matches server/routes/sync.py → class SyncResponse.
+library;
 
 class SyncResponse {
   final bool success;

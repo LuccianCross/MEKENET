@@ -16,6 +16,11 @@ class CbeSmsParser {
     caseSensitive: false,
   );
 
+  static final _counterpartyPattern = RegExp(
+    r'(?:from|to)\s+account\s+\d+\s*\(([^)]+)\)',
+    caseSensitive: false,
+  );
+
   static ParsedBankSms? parse(String smsText) {
     if (smsText.trim().isEmpty) return null;
 
@@ -74,6 +79,12 @@ class CbeSmsParser {
 
     final balanceMatch = _balancePattern.firstMatch(normalizedText);
 
+    String? counterparty;
+    final cpMatch = _counterpartyPattern.firstMatch(normalizedText);
+    if (cpMatch != null) {
+      counterparty = cpMatch.group(1)?.trim();
+    }
+
     return ParsedBankSms(
       bankName: 'CBE',
       direction: direction,
@@ -82,6 +93,7 @@ class CbeSmsParser {
       balanceAfter: balanceMatch != null
           ? double.parse(balanceMatch.group(1)!.replaceAll(',', ''))
           : null,
+      counterparty: counterparty,
     );
   }
 }

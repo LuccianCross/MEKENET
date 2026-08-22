@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../repositories/sqlite_transaction_repository.dart';
 import '../services/category_service.dart';
 import '../services/sync_service.dart';
+import '../l10n/app_localizations.dart';
 
 class QuickAddScreen extends StatefulWidget {
   const QuickAddScreen({super.key});
@@ -120,8 +121,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 20),
 
             // ── Amount ──────────────────────────────────────────────
-            const Text(
-              'Amount (Br)',
+            Text(
+              AppLocalizations.of(context).t('amountBr'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -137,8 +138,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 20),
 
             // ── Category chips ─────────────────────────────────────
-            const Text(
-              'Category',
+            Text(
+              AppLocalizations.of(context).t('category'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -162,8 +163,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 20),
 
             // ── Date ────────────────────────────────────────────────
-            const Text(
-              'Date',
+            Text(
+              AppLocalizations.of(context).t('date'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -190,8 +191,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 20),
 
             // ── Note ────────────────────────────────────────────────
-            const Text(
-              'Note (Optional)',
+            Text(
+              AppLocalizations.of(context).t('note'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -230,7 +231,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                         ),
                       )
                     : Text(
-                        _isIncome ? 'Save Income' : 'Save Expense',
+                        _isIncome ? '${AppLocalizations.of(context).t('income')} ${AppLocalizations.of(context).t('save')}' : '${AppLocalizations.of(context).t('expenses')} ${AppLocalizations.of(context).t('save')}',
                         style: const TextStyle(fontSize: 16),
                       ),
               ),
@@ -251,7 +252,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an amount')),
+        SnackBar(content: Text(AppLocalizations.of(context).t('pleaseEnterAmount'))),
       );
       return;
     }
@@ -259,7 +260,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
+        SnackBar(content: Text(AppLocalizations.of(context).t('pleaseEnterValidAmount'))),
       );
       return;
     }
@@ -288,7 +289,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_isIncome ? 'Income' : 'Expense'} saved'),
+            content: Text('${_isIncome ? AppLocalizations.of(context).t('income') : AppLocalizations.of(context).t('expenses')} ${AppLocalizations.of(context).t('saved')}'),
             backgroundColor: const Color(0xFF0A8E48),
           ),
         );

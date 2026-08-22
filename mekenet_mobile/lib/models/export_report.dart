@@ -3,6 +3,7 @@
 /// Dart mirrors of the backend's ExportReport, CategoryBreakdown, and
 /// TransactionSummary Pydantic models.
 /// Matches server/routes/export.py.
+library;
 
 class CategoryBreakdown {
   final String category;
@@ -175,7 +176,7 @@ class ExportReport {
       filtersApplied: {
         if (fromDate != null) 'from_date': fromDate.toIso8601String(),
         if (toDate != null) 'to_date': toDate.toIso8601String(),
-        if (type != null) 'type': type,
+        'type': ?type,
       },
     );
   }

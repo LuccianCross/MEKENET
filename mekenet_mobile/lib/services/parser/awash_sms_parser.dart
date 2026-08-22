@@ -16,6 +16,16 @@ class AwashSmsParser {
     caseSensitive: false,
   );
 
+  static final _counterpartySentPattern = RegExp(
+    r'To\s+\d+\s*\(([^)]+)\)',
+    caseSensitive: false,
+  );
+
+  static final _counterpartyReceivedPattern = RegExp(
+    r'(?:from|by)\s*\(([^)]+)\)',
+    caseSensitive: false,
+  );
+
   static ParsedBankSms? parse(String smsText) {
     if (smsText.trim().isEmpty) return null;
 
@@ -67,6 +77,15 @@ class AwashSmsParser {
 
     final balanceMatch = _balancePattern.firstMatch(normalizedText);
 
+    String? counterparty;
+    if (isSent) {
+      final cpMatch = _counterpartySentPattern.firstMatch(normalizedText);
+      if (cpMatch != null) counterparty = cpMatch.group(1)?.trim();
+    } else if (isReceived) {
+      final cpMatch = _counterpartyReceivedPattern.firstMatch(normalizedText);
+      if (cpMatch != null) counterparty = cpMatch.group(1)?.trim();
+    }
+
     return ParsedBankSms(
       bankName: 'Awash',
       direction: direction,
@@ -75,6 +94,7 @@ class AwashSmsParser {
       balanceAfter: balanceMatch != null
           ? double.parse(balanceMatch.group(1)!.replaceAll(',', ''))
           : null,
+      counterparty: counterparty,
     );
   }
 }

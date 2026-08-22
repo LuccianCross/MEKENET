@@ -1,6 +1,7 @@
 /// lib/services/category_service.dart
 ///
 /// Manages income and expense categories, tracks usage for smart pre-filling.
+library;
 
 import 'dart:convert';
 

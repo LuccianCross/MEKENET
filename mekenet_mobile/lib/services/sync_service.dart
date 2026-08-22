@@ -12,6 +12,7 @@
 ///
 /// Error rule: network failures are logged and silenced — never propagated
 /// to the UI. The transaction stays in SQLite with synced = 0.
+library;
 
 import 'dart:io';
 

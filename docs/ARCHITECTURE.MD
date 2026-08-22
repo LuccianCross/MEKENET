@@ -20,6 +20,8 @@
 12. [Testing Strategy](#12-testing-strategy)
 13. [What's Done vs. What's Left](#13-whats-done-vs-whats-left)
 14. [Key Decisions & Why](#14-key-decisions--why)
+15. [Dockerization — Containerizing the Server](#15-dockerization--containerizing-the-server)
+16. [Ethiopian Language Support — Package Assessment](#16-ethiopian-language-support--package-assessment)
 
 ---
 
@@ -927,5 +929,438 @@ The PRD explicitly states that users fear tax attention. Sync being off by defau
 
 ---
 
-*Document version: 1.0 — August 2026*
-*Last updated: After merge of pr/30 (SMS multi-bank + API client/sync/export)*
+## 15. Dockerization — Containerizing the Server
+
+### What Is Docker and Why Do We Use It?
+
+Imagine you buy a new laptop. You install Python, then install all the packages, then copy the code, then realize it needs a different Python version, then the packages conflict with each other. Docker eliminates this entire problem.
+
+**Docker packages the server AND everything it needs (Python, libraries, system tools) into one sealed box called a "container."** That container runs the same way on your laptop, on a colleague's laptop, on a cloud server, anywhere. No "it works on my machine" problems.
+
+```
+WITHOUT DOCKER                          WITH DOCKER
+════════════════                        ════════════════
+
+  Your laptop:                          Your laptop:
+  ├── Python 3.13 ✅                     ┌──────────────────────┐
+  ├── fastapi 0.104 ✅                   │  mekenet-server      │
+  ├── sqlalchemy 2.0 ✅                  │  (sealed box)        │
+  ├── psycopg2 2.9 ❌ (missing!)        │                      │
+  └── code: "It crashed!"               │  Python 3.12         │
+                                         │  fastapi 0.104       │
+  Colleague's laptop:                    │  sqlalchemy 2.0      │
+  ├── Python 3.11 ❌ (wrong version)     │  psycopg2 2.9       │
+  ├── fastapi 0.99 ❌ (old version)      │  uvicorn 0.24        │
+  ├── code: "Import errors!"            │  code                │
+                                         │                      │
+                                         │  → Works everywhere  │
+                                         └──────────────────────┘
+```
+
+### The Mekenet Server Docker Setup
+
+Our server has two files that control Docker:
+
+#### `server/Dockerfile` — The Recipe
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Dockerfile — Multi-Stage Build                                  │
+│                                                                   │
+│  STAGE 1: "builder" (like a kitchen)                              │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Base image:  python:3.12-slim                              │ │
+│  │  Purpose:     Install Python packages                       │ │
+│  │                                                             │ │
+│  │  Steps:                                                     │ │
+│  │  1. Install system tools: gcc, libpq-dev                    │ │
+│  │     (needed to compile psycopg2 from source)                │ │
+│  │  2. Copy requirements.txt                                   │ │
+│  │  3. pip install --prefix=/install -r requirements.txt       │ │
+│  │     (installs everything to a staging area, not final)      │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  STAGE 2: "runtime" (like a serving plate)                        │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Base image:  python:3.12-slim (fresh, clean)               │ │
+│  │  Purpose:     Run the server with minimal footprint          │ │
+│  │                                                             │ │
+│  │  Steps:                                                     │ │
+│  │  1. COPY --from=builder /install /usr/local                 │ │
+│  │     (copy ONLY the installed packages — no gcc, no dev libs)│ │
+│  │  2. COPY . .                                                │ │
+│  │     (copy our Python code)                                  │ │
+│  │  3. EXPOSE 8000                                             │ │
+│  │  4. CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]       │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  Why two stages?                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Builder stage has: gcc, libpq-dev, pip cache, build tools  │ │
+│  │  Runtime stage has: ONLY our code + Python packages          │ │
+│  │                                                             │ │
+│  │  Builder image: ~400 MB                                     │ │
+│  │  Runtime image: ~120 MB  (3x smaller!)                      │ │
+│  │                                                             │ │
+│  │  Smaller image = faster downloads, less storage,            │ │
+│  │  faster deployment, smaller attack surface (fewer tools     │ │
+│  │  for an attacker to exploit)                                │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### `server/docker-compose.yml` — The Orchestrator
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  docker-compose.yml                                              │
+│                                                                   │
+│  services:                                                        │
+│    api:                                                           │
+│      build: .              ← Build from Dockerfile in this dir    │
+│      ports: "8000:8000"    ← Map laptop port 8000 → container    │
+│      env_file: .env        ← Load secrets from .env file          │
+│      environment:                                                 │
+│        DATABASE_URL=${DATABASE_URL}                               │
+│      restart: unless-stopped  ← Auto-restart if it crashes        │
+│      healthcheck:                                                │
+│        test: curl http://localhost:8000/health                    │
+│        interval: 30s         ← Check every 30 seconds             │
+│        timeout: 10s          ← Give up after 10 seconds           │
+│        retries: 3            ← Try 3 times before marking "down"  │
+│                                                                   │
+│  What this does:                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  1. Builds the Docker image from our Dockerfile             │ │
+│  │  2. Starts the container                                    │ │
+│  │  3. Maps port 8000 so we can access it from our browser     │ │
+│  │  4. Passes the DATABASE_URL from .env into the container    │ │
+│  │  5. Keeps it running, restarts on crash                     │ │
+│  │  6. Checks /health every 30s to detect problems             │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### The `.env` File — Secrets
+
+The `.env` file contains the database connection string. **It is never committed to git** (listed in `.gitignore`).
+
+```
+# server/.env
+DATABASE_URL=postgresql://user:password@ep-cool-bird-123456.us-east-2.aws.neon.tech/mekenet?sslmode=require
+```
+
+**Why separate?** Because the DATABASE_URL contains your password. You don't want that in your code repository where anyone with access can see it.
+
+### Complete Data Flow with Docker
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    YOUR LAPTOP                                       │
+│                                                                      │
+│  ┌──────────────────────┐                                           │
+│  │  Docker Desktop       │  (or Docker Engine on Linux)              │
+│  │                       │                                           │
+│  │  ┌─────────────────┐ │                                           │
+│  │  │ Container: api   │ │                                           │
+│  │  │                  │ │                                           │
+│  │  │  ┌────────────┐ │ │                                           │
+│  │  │  │ uvicorn     │ │ │    ┌──────────────────┐                  │
+│  │  │  │ main:app    │─┼─┼───>│ Neon PostgreSQL   │                  │
+│  │  │  │ :8000       │ │ │    │ (cloud database)   │                  │
+│  │  │  └────────────┘ │ │    │ ep-cool-bird...    │                  │
+│  │  │                  │ │    └──────────────────┘                  │
+│  │  │  Reads .env ─────┼─┤    ↑                                      │
+│  │  └─────────────────┘ │    │ DATABASE_URL                         │
+│  └──────────────────────┘    │ (SSL connection)                      │
+│                              │                                       │
+│  Browser: http://localhost:8000/health                               │
+│  ──────────────────────────>│                                       │
+│  Response: {"status": "ok"} │                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Step-by-Step: How to Run the Server in Docker
+
+```bash
+# Step 1: Navigate to server directory
+cd server/
+
+# Step 2: Create your .env file (only needed once)
+echo 'DATABASE_URL=your-neon-connection-string-here' > .env
+
+# Step 3: Build the Docker image
+docker compose build
+# This runs both stages of the Dockerfile:
+#   - Installs gcc, libpq-dev in the builder stage
+#   - pip installs all Python packages
+#   - Copies only what's needed to the runtime stage
+#   - Produces a ~120MB image
+
+# Step 4: Start the server
+docker compose up
+# You'll see output like:
+#   api-1  | INFO:     Uvicorn running on http://0.0.0.0:8000
+
+# Step 5: Test it (in another terminal)
+curl http://localhost:8000/health
+# → {"status":"ok","db_connection":"healthy"}
+
+curl http://localhost:8000/hello
+# → {"message":"I'm working"}
+
+# Step 6: Stop the server
+docker compose down
+```
+
+### How the Health Check Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  HEALTH CHECK CYCLE                                              │
+│                                                                   │
+│  Every 30 seconds:                                                │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     │
+│  │ Docker        │────>│ GET /health  │────>│ Server       │     │
+│  │ Engine        │     │              │     │ responds     │     │
+│  └──────────────┘     └──────────────┘     └──────┬───────┘     │
+│                                                    │              │
+│                                              ┌─────┴─────┐       │
+│                                              │           │       │
+│                                          status=ok   status=degraded│
+│                                              │           │       │
+│                                              ▼           ▼       │
+│                                          ✅ Running   ⚠️ Warning  │
+│                                          (do nothing) (check logs)│
+│                                                                   │
+│  If 3 retries fail → Docker marks container as "unhealthy"        │
+│  With restart: unless-stopped → Docker automatically restarts it  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The `/health` endpoint does TWO things:
+1. **Confirms the server is alive** (responding to HTTP requests)
+2. **Tests the database connection** (`SELECT 1` against Neon PostgreSQL)
+
+If the database is down, it returns `{"status": "degraded"}` instead of crashing — this is graceful degradation.
+
+### Deploying to a Cloud Platform
+
+Docker containers can be deployed to any cloud platform. Here are the most practical options for Mekenet:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  DEPLOYMENT OPTIONS                                               │
+│                                                                   │
+│  ┌─────────────────┬──────────────┬───────────────────────────┐  │
+│  │ Platform        │ Free Tier    │ Best For                   │  │
+│  ├─────────────────┼──────────────┼───────────────────────────┤  │
+│  │ Railway         │ $5/month     │ Easiest — push & deploy    │  │
+│  │ Fly.io          │ 3 shared VMs │ Good free tier, Docker     │  │
+│  │ Render          │ Free tier    │ Simple, auto-deploys       │  │
+│  │ AWS ECS/Fargate │ 12mo free    │ Production-grade           │  │
+│  │ DigitalOcean    │ $5/month     │ Simple, predictable bills  │  │
+│  └─────────────────┴──────────────┴───────────────────────────┘  │
+│                                                                   │
+│  Recommended for Mekenet MVP: Railway                             │
+│  → Connects to GitHub, auto-deploys on push                       │
+│  → Supports Docker natively                                       │
+│  → Free $5/month credit covers our needs                          │
+│                                                                   │
+│  deploy command (Railway CLI):                                     │
+│  $ railway login                                                  │
+│  $ railway init                                                   │
+│  $ railway up                                                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Container Isolation — What Runs Where
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  WHAT'S IN THE CONTAINER          │  WHAT'S OUTSIDE              │
+│  ═══════════════════════════      │  ═══════════════════════      │
+│                                    │                                │
+│  ✅ Python 3.12                    │  ❌ No Python on host needed   │
+│  ✅ fastapi 0.104                  │  ❌ No pip install on host     │
+│  ✅ sqlalchemy 2.0                 │  ❌ No system dependencies     │
+│  ✅ uvicorn 0.24                   │  ❌ No port conflicts          │
+│  ✅ psycopg2-binary 2.9            │  ❌ No version mismatches      │
+│  ✅ Our code (main.py, routes/)    │                                │
+│                                    │  ✅ .env file (secrets)        │
+│  Does NOT contain:                 │  ✅ Docker Engine              │
+│  ❌ The database (that's Neon)     │  ✅ docker-compose.yml         │
+│  ❌ The mobile app (that's Flutter)│  ✅ Dockerfile                 │
+│  ❌ Test data                      │  ✅ Logs                       │
+│  ❌ .env file (mounted from host)  │                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why Neon PostgreSQL Is NOT Containerized
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  COMMON QUESTION: "Why not run the database in Docker too?"      │
+│                                                                   │
+│  We could do:                                                     │
+│    services:                                                      │
+│      api:                                                         │
+│        build: .                                                   │
+│      db:                                                          │
+│        image: postgres:16                                         │
+│        volumes:                                                   │
+│          - pgdata:/var/lib/postgresql/data                        │
+│                                                                   │
+│  But we chose Neon because:                                        │
+│                                                                   │
+│  1. BACKUPS — Neon automatically backs up the database daily.     │
+│     If your laptop dies, the data survives.                       │
+│     A Docker volume on your laptop = data dies with the laptop.   │
+│                                                                   │
+│  2. SCALING — Neon is serverless PostgreSQL. It scales            │
+│     automatically. A Docker postgres on your laptop is limited    │
+│     to your laptop's CPU/RAM.                                     │
+│                                                                   │
+│  3. DEPLOYMENT — When we deploy to Railway/Fly.io, the           │
+│     container needs to connect to the database. Neon gives        │
+│     us a stable URL. A local Docker DB would be unreachable       │
+│     from a deployed container.                                    │
+│                                                                   │
+│  4. COST — Neon free tier gives us 0.5 GB storage and            │
+│     24/7 compute. That's enough for the MVP. Running Postgres     │
+│     in Docker 24/7 on a paid VM costs $5-10/month.               │
+│                                                                   │
+│  5. SIMPLICITY — One fewer container to manage, monitor,          │
+│     and debug. The mobile app talks to the server, the server     │
+│     talks to Neon. Simple chain.                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Environment Variables Reference
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Variable             │ Where      │ Purpose                     │
+│  ═══════════════════  │ ══════════ │ ═══════════════════════════ │
+│  DATABASE_URL         │ .env       │ Neon PostgreSQL connection   │
+│                       │            │ string with SSL required     │
+│                       │            │                               │
+│  docker-compose.yml   │ .env       │ Tells Docker to read the     │
+│  env_file: .env       │            │ .env file and pass vars      │
+│                       │            │ into the container           │
+│                       │            │                               │
+│  environment:         │ compose    │ Overrides/extends env vars   │
+│  DATABASE_URL=${...}  │            │ inside the container         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The flow:
+1. You put `DATABASE_URL=...` in `server/.env`
+2. `docker-compose.yml` says `env_file: .env` → Docker reads it
+3. `environment: DATABASE_URL=${DATABASE_URL}` → passes it into the container
+4. `server/db/database.py` reads it: `os.getenv("DATABASE_URL")`
+5. If it's missing → falls back to in-memory SQLite (for testing)
+
+### Troubleshooting
+
+| Problem | Cause | Fix |
+|---|---|---|
+| `DATABASE_URL not set` | .env file missing or empty | Create `server/.env` with your Neon URL |
+| `connection refused` | Neon URL is wrong or DB is paused | Check Neon dashboard; unpause if sleeping |
+| `port 8000 already in use` | Something else on your machine uses port 8000 | Change port mapping: `"8001:8000"` in docker-compose.yml |
+| `pip install fails during build` | Network issue or missing system deps | Run `docker compose build --no-cache` |
+| Container keeps restarting | Code crash on startup | Check logs: `docker compose logs api` |
+
+---
+
+## 16. Ethiopian Language Support — Package Assessment
+
+### The Problem
+
+Our Amharic translations have gaps. Some keys are correctly translated (authentic Amharic from the team), but others fell back to English because we couldn't generate correct Amharic text programmatically. We investigated Flutter packages that might help.
+
+### Packages Evaluated
+
+#### `geez_fonts` — Ethiopic Font Library
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Package:  geez_fonts                                            │
+│  URL:      pub.dev/packages/geez_fonts                           │
+│  Purpose:  Provides 150+ Ethiopic font families                   │
+│  What:     Dynamic font loading from the Geez Archive            │
+│                                                                   │
+│  What it DOES:                                                    │
+│  ✅ Beautiful Amharic typography (Adwa, Benaiah, etc.)           │
+│  ✅ Dynamic loading (no bundling needed)                          │
+│  ✅ TextStyle and TextTheme support                               │
+│                                                                   │
+│  What it DOES NOT do:                                             │
+│  ❌ Translate English text to Amharic                             │
+│  ❌ Provide localization strings                                  │
+│  ❌ Help with our garbled Amharic translations problem            │
+│                                                                   │
+│  VERDICT: Not useful for our current problem.                     │
+│  USEFUL IF: We want prettier Amharic fonts later (cosmetic only) │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### `ethio_greg_dual_calendar` — Ethiopian Calendar UI
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Package:  ethio_greg_dual_calendar                              │
+│  Purpose:  Dual-calendar date picker (Gregorian + Ethiopian)      │
+│  What:     Full calendar widget with Amharic month/weekday names  │
+│                                                                   │
+│  What it DOES:                                                    │
+│  ✅ Amharic month names (መስከረም, ጥቅምት, ...)                    │
+│  ✅ Ethiopian calendar conversion                                 │
+│  ✅ Ge'ez numeral display (፩ ፲ ፴)                                │
+│                                                                   │
+│  POTENTIAL USE:                                                   │
+│  → Date picker for Quick Add screen                               │
+│  → Showing dates in Amharic on the dashboard                      │
+│  → Ethiopian calendar preference toggle in Settings               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### `kenat` — Comprehensive Ethiopian Calendar
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Package:  kenat (ቀናት — "days" in Amharic)                      │
+│  Purpose:  Full Ethiopian calendar system with cultural data      │
+│                                                                   │
+│  What it DOES:                                                    │
+│  ✅ Ethiopian ↔ Gregorian date conversion                         │
+│  ✅ Holidays (Christian, Islamic, public)                         │
+│  ✅ Fasting periods (Abiy Tsome, Filset, Ramadan)                │
+│  ✅ Bahire Hasab (ecclesiastical computation)                     │
+│  ✅ Ethiopian time system (12-hour day/night)                     │
+│  ✅ Ge'ez numerals (፳፻፲፮)                                       │
+│  ✅ Amharic weekday/month names                                  │
+│  ✅ Multilingual (Amharic + English)                              │
+│                                                                   │
+│  POTENTIAL USE:                                                   │
+│  → "Today" could show ዛሬ ቀኑ (with correct Amharic)              │
+│  → Transaction dates in Ethiopian calendar                        │
+│  → Holiday awareness (e.g., no transactions on Fasting days)      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Recommendation
+
+| Need | Solution | Priority |
+|---|---|---|
+| Correct Amharic UI translations | Hire Amharic speaker to review translations | **High** — do this first |
+| Prettier Amharic fonts | `geez_fonts` | Low — cosmetic |
+| Ethiopian calendar display | `ethio_greg_dual_calendar` or `kenat` | Medium — nice to have |
+| Ethiopian date formatting | `kenat` (most complete) | Medium — nice to have |
+
+**Bottom line:** No package solves our core problem (garbled Amharic text). The fix is human: get a native Amharic speaker to review and correct the translations in `lib/l10n/app_localizations.dart`. The calendar packages are value-add features for a future release.
+
+---
+
+*Document version: 2.0 — August 2026*
+*Last updated: Dockerization docs + Ethiopian language package assessment*

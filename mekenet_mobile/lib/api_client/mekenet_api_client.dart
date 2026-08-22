@@ -10,6 +10,7 @@
 ///   2. Never throws to the caller. Returns null on failure.
 ///   3. Every request carries X-Device-ID header.
 ///   4. Base URL is configurable (default = Android emulator loopback).
+library;
 
 import 'dart:async';
 import 'dart:convert';
