@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:another_telephony/telephony.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../l10n/l10n.dart';
 import '../api_client/mekenet_api_client.dart';
 import '../models/export_report.dart';
 import '../services/sync_service.dart';
@@ -62,7 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(L10n.instance.t('settings_title')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -73,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ------------------------------------------------------------------
-            // Privacy card (unchanged from original)
+            // Privacy card
             // ------------------------------------------------------------------
             Container(
               padding: const EdgeInsets.all(16),
@@ -93,26 +94,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.shield,
-                        color: const Color(0xFF0A8E48),
+                        color: Color(0xFF0A8E48),
                         size: 28,
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Your data stays on your device',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          L10n.instance.t('privacy_card_title'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Your financial records are 100% private. '
-                    'All SMS processing happens securely on your phone '
-                    'without sending details to any server.',
+                    L10n.instance.t('privacy_card_desc'),
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -126,8 +127,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: ElevatedButton(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Access allowed!'),
+                              SnackBar(
+                                content: Text(
+                                  L10n.instance.t('access_allowed_msg'),
+                                ),
                               ),
                             );
                           },
@@ -139,7 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const Text('Allow Access'),
+                          child: Text(L10n.instance.t('btn_allow_access')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -147,7 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        child: const Text('Not now'),
+                        child: Text(L10n.instance.t('btn_not_now')),
                       ),
                     ],
                   ),
@@ -173,32 +176,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: Column(
                 children: [
+                  // ── Language tile ─────────────────────────────────────────
+                  ListTile(
+                    leading: const Icon(Icons.language, color: Color(0xFF0A8E48)),
+                    title: Text(L10n.instance.t('setting_language')),
+                    subtitle: Text(L10n.instance.t('setting_language_sub')),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showLanguageSelector(context),
+                  ),
+                  const Divider(height: 1),
+
                   // Privacy tile
-                  const ListTile(
-                    leading: Icon(Icons.lock_outline, color: Color(0xFF0A8E48)),
-                    title: Text('Privacy'),
-                    subtitle: Text('Your data stays on your device'),
-                    trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline, color: Color(0xFF0A8E48)),
+                    title: Text(L10n.instance.t('setting_privacy')),
+                    subtitle: Text(L10n.instance.t('setting_privacy_sub')),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   ),
                   const Divider(height: 1),
 
                   // Offline mode tile
-                  const ListTile(
-                    leading: Icon(Icons.cloud_off, color: Color(0xFF0A8E48)),
-                    title: Text('Offline Mode'),
-                    subtitle: Text('Works without internet'),
-                    trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                  ListTile(
+                    leading: const Icon(Icons.cloud_off, color: Color(0xFF0A8E48)),
+                    title: Text(L10n.instance.t('setting_offline_mode')),
+                    subtitle: Text(L10n.instance.t('setting_offline_mode_sub')),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   ),
                   const Divider(height: 1),
-
                   // ── Sync toggle ──────────────────────────────────────────
                   ListTile(
                     leading: const Icon(Icons.sync, color: Color(0xFF0A8E48)),
-                    title: const Text('Sync to cloud'),
+                    title: Text(L10n.instance.t('setting_sync')),
                     subtitle: Text(
                       _syncEnabled
-                          ? 'Transactions will be backed up'
-                          : 'Only stored on this device',
+                          ? L10n.instance.t('setting_sync_sub_on')
+                          : L10n.instance.t('setting_sync_sub_off'),
                     ),
                     trailing: _loadingSync
                         ? const SizedBox(
@@ -218,28 +230,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ListTile(
                     leading: const Icon(Icons.upload_file,
                         color: Color(0xFF0A8E48)),
-                    title: const Text('Export Report'),
-                    subtitle: const Text('Send report to bank'),
+                    title: Text(L10n.instance.t('setting_export')),
+                    subtitle: Text(L10n.instance.t('setting_export_sub')),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showExportDialog(context),
                   ),
                   const Divider(height: 1),
 
                   // Version tile
-                  const ListTile(
+                  ListTile(
                     leading:
-                        Icon(Icons.info_outline, color: Color(0xFF0A8E48)),
-                    title: Text('Version'),
-                    subtitle: Text('Mekenet v0.1.0'),
-                    trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                        const Icon(Icons.info_outline, color: Color(0xFF0A8E48)),
+                    title: Text(L10n.instance.t('setting_version')),
+                    subtitle: Text(L10n.instance.t('setting_version_sub')),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   ),
                   const Divider(height: 1),
 
                   // Debug SMS tile
                   ListTile(
                     leading: const Icon(Icons.bug_report, color: Colors.orange),
-                    title: const Text('Debug SMS'),
-                    subtitle: const Text('Test each SMS pipeline step'),
+                    title: Text(L10n.instance.t('setting_debug_sms')),
+                    subtitle: Text(L10n.instance.t('setting_debug_sms_sub')),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _runSmsDebug(context),
                   ),
@@ -249,6 +261,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Language Selector Modal
+  // --------------------------------------------------------------------------
+  void _showLanguageSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                L10n.instance.t('select_language_title'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.language, color: Color(0xFF0A8E48)),
+                title: Text(L10n.instance.t('lang_english')),
+                trailing: L10n.instance.currentLanguageCode == 'en'
+                    ? const Icon(Icons.check, color: Color(0xFF0A8E48))
+                    : null,
+                onTap: () async {
+                  await L10n.instance.setLocale('en');
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.language, color: Color(0xFF0A8E48)),
+                title: Text(L10n.instance.t('lang_amharic')),
+                trailing: L10n.instance.currentLanguageCode == 'am'
+                    ? const Icon(Icons.check, color: Color(0xFF0A8E48))
+                    : null,
+                onTap: () async {
+                  await L10n.instance.setLocale('am');
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -288,16 +365,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Export Report',
-                    style: TextStyle(
+                  Text(
+                    L10n.instance.t('export_dialog_title'),
+                    style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
-
                   // From date
                   _DatePickerRow(
-                    label: 'From',
+                    label: L10n.instance.t('filter_from'),
                     date: fromDate,
                     onPick: (d) => setModalState(() => fromDate = d),
                   ),
@@ -305,32 +381,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // To date
                   _DatePickerRow(
-                    label: 'To',
+                    label: L10n.instance.t('filter_to'),
                     date: toDate,
                     onPick: (d) => setModalState(() => toDate = d),
                   ),
                   const SizedBox(height: 16),
 
                   // Type filter
-                  const Text('Type',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(L10n.instance.t('filter_type'),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: [
                       _FilterChip(
-                        label: 'All',
+                        label: L10n.instance.t('filter_type_all'),
                         selected: typeFilter == null,
                         onTap: () => setModalState(() => typeFilter = null),
                       ),
                       _FilterChip(
-                        label: 'Income',
+                        label: L10n.instance.t('filter_type_income'),
                         selected: typeFilter == 'income',
                         onTap: () =>
                             setModalState(() => typeFilter = 'income'),
                       ),
                       _FilterChip(
-                        label: 'Expense',
+                        label: L10n.instance.t('filter_type_expense'),
                         selected: typeFilter == 'expense',
                         onTap: () =>
                             setModalState(() => typeFilter = 'expense'),
@@ -345,7 +421,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 48,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.download),
-                      label: const Text('Get Report'),
+                      label: Text(L10n.instance.t('btn_get_report')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0A8E48),
                         foregroundColor: Colors.white,
@@ -400,12 +476,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (report == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Could not fetch report. Make sure the server is running '
-            'and you have synced at least one transaction.',
+            L10n.instance.t('msg_could_not_fetch_report'),
           ),
-          duration: Duration(seconds: 4),
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
@@ -413,7 +488,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     _showReportSheet(context, report);
   }
-
   void _showReportSheet(BuildContext context, ExportReport report) {
     showModalBottomSheet(
       context: context,
@@ -444,13 +518,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Financial Report',
-                    style: TextStyle(
+                  Text(
+                    L10n.instance.t('report_sheet_title'),
+                    style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    'Generated: ${report.generatedAt.substring(0, 10)}',
+                    L10n.instance.t('report_generated', {
+                      'date': report.generatedAt.substring(0, 10),
+                    }),
                     style: TextStyle(
                         fontSize: 12, color: Colors.grey[500]),
                   ),
@@ -458,26 +534,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Summary cards
                   _SummaryRow(
-                    label: 'Total Income',
-                    value: '${report.currency} ${report.totalIncome.toStringAsFixed(2)}',
+                    label: L10n.instance.t('report_total_income'),
+                    value: L10n.instance.formatCurrencyDecimal(report.totalIncome),
                     color: Colors.green,
                   ),
                   _SummaryRow(
-                    label: 'Total Expense',
-                    value: '${report.currency} ${report.totalExpense.toStringAsFixed(2)}',
+                    label: L10n.instance.t('report_total_expense'),
+                    value: L10n.instance.formatCurrencyDecimal(report.totalExpense),
                     color: Colors.red,
                   ),
                   _SummaryRow(
-                    label: 'Net Balance',
-                    value: '${report.currency} ${report.netBalance.toStringAsFixed(2)}',
+                    label: L10n.instance.t('report_net_balance'),
+                    value: L10n.instance.formatCurrencyDecimal(report.netBalance),
                     color: report.netBalance >= 0 ? Colors.green : Colors.red,
                     bold: true,
                   ),
                   const SizedBox(height: 16),
-
                   // Transactions list
                   Text(
-                    'Transactions (${report.transactionCount})',
+                    L10n.instance.t('report_transactions_count', {
+                      'count': report.transactionCount,
+                    }),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
@@ -500,10 +577,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         title: Text(tx.description,
                             style: const TextStyle(fontSize: 14)),
-                        subtitle: Text('${tx.date} · ${tx.category}',
+                        subtitle: Text('${tx.date} · ${L10n.instance.translateCategory(tx.category)}',
                             style: const TextStyle(fontSize: 12)),
                         trailing: Text(
-                          '${tx.currency} ${tx.amount.toStringAsFixed(2)}',
+                          L10n.instance.formatCurrencyDecimal(tx.amount),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: tx.type == 'income'
@@ -550,7 +627,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       results.add('RECEIVE_SMS check ERROR: $e');
     }
     results.add('');
-
     // ── CHECK 2: Read Inbox ──
     results.add('--- CHECK 2: Read Inbox ---');
     int inboxCount = 0;
@@ -659,12 +735,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     results.add('');
     results.add('=== SMS DEBUG END ===');
-
     if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('SMS Debug Results'),
+        title: Text(L10n.instance.t('sms_debug_title')),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -677,7 +752,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(L10n.instance.t('btn_close')),
           ),
         ],
       ),
@@ -730,7 +805,7 @@ class _DatePickerRow extends StatelessWidget {
               child: Text(
                 date != null
                     ? '${date!.day}/${date!.month}/${date!.year}'
-                    : 'Any',
+                    : L10n.instance.t('filter_any'),
                 style: TextStyle(
                   color: date != null ? Colors.black87 : Colors.grey,
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 
+import '../l10n/l10n.dart';
 import '../main.dart';
 
 class PinScreen extends StatefulWidget {
@@ -58,8 +59,10 @@ class _PinScreenState extends State<PinScreen> {
       appBar: AppBar(
         title: Text(
           _isSettingPin
-              ? (_isConfirming ? 'Confirm PIN' : 'Set PIN')
-              : 'Enter PIN',
+              ? (_isConfirming
+                  ? L10n.instance.t('pin_confirm_title')
+                  : L10n.instance.t('pin_set_title'))
+              : L10n.instance.t('pin_enter_title'),
         ),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
@@ -75,17 +78,19 @@ class _PinScreenState extends State<PinScreen> {
               const SizedBox(height: 12),
               Text(
                 _isSettingPin
-                    ? (_isConfirming ? 'Confirm your PIN' : 'Create your PIN')
-                    : 'Enter your PIN',
+                    ? (_isConfirming
+                        ? L10n.instance.t('pin_confirm_subtitle')
+                        : L10n.instance.t('pin_create_subtitle'))
+                    : L10n.instance.t('pin_enter_subtitle'),
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
                 _isSettingPin
                     ? (_isConfirming
-                        ? 'Enter your 4-digit PIN again'
-                        : 'Set a 4-digit PIN to secure your data')
-                    : 'Please enter your 4-digit PIN',
+                        ? L10n.instance.t('pin_confirm_desc')
+                        : L10n.instance.t('pin_create_desc'))
+                    : L10n.instance.t('pin_enter_desc'),
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
@@ -110,7 +115,7 @@ class _PinScreenState extends State<PinScreen> {
                       _isConfirming = false;
                     });
                   },
-                  child: const Text('Clear and start over'),
+                  child: Text(L10n.instance.t('pin_clear_start_over')),
                 ),
             ],
           ),
@@ -123,8 +128,7 @@ class _PinScreenState extends State<PinScreen> {
     int length = _isSettingPin
         ? (_isConfirming ? _confirmPin.length : _pin.length)
         : _pin.length;
-
-    return Row(
+        return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(4, (index) {
         return Container(
@@ -195,7 +199,7 @@ class _PinScreenState extends State<PinScreen> {
               _confirmPin = '';
               _isConfirming = false;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PINs do not match. Try again.')),
+                SnackBar(content: Text(L10n.instance.t('pin_mismatch'))),
               );
             }
           }
@@ -252,7 +256,6 @@ class _PinScreenState extends State<PinScreen> {
       (route) => false,
     );
   }
-
   Future<void> _checkLoginPin() async {
     final lockoutStr = await _secureStorage.read(key: _lockoutKey);
     if (lockoutStr != null) {
@@ -261,7 +264,14 @@ class _PinScreenState extends State<PinScreen> {
         final remaining = lockoutUntil.difference(DateTime.now()).inSeconds;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Too many attempts. Try again in $remaining seconds.')),
+            SnackBar(
+              content: Text(
+                L10n.instance.t(
+                  'pin_too_many_attempts',
+                  {'seconds': remaining},
+                ),
+              ),
+            ),
           );
           setState(() => _pin = '');
         }
@@ -291,13 +301,20 @@ class _PinScreenState extends State<PinScreen> {
         await _secureStorage.write(key: _lockoutKey, value: lockoutUntil.toIso8601String());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Too many attempts. Locked for 30 seconds.')),
+            SnackBar(content: Text(L10n.instance.t('pin_locked_out'))),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Incorrect PIN. $_failCount/5 attempts.')),
+            SnackBar(
+              content: Text(
+                L10n.instance.t(
+                  'pin_incorrect_count',
+                  {'count': _failCount},
+                ),
+              ),
+            ),
           );
         }
       }

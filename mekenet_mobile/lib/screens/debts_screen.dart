@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
+import '../l10n/l10n.dart';
 import '../models/debt.dart';
 import '../repositories/repository_provider.dart';
 
@@ -55,7 +55,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Who Owes Me'),
+        title: Text(L10n.instance.t('debts_title')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -83,16 +83,16 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           children: [
                             const Icon(Icons.error_outline, size: 50, color: Colors.red),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Could not load debts',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            Text(
+                              L10n.instance.t('could_not_load_debts'),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
                             Text(_error!, textAlign: TextAlign.center),
                             const SizedBox(height: 20),
                             ElevatedButton(
                               onPressed: _loadData,
-                              child: const Text('Retry'),
+                              child: Text(L10n.instance.t('btn_retry')),
                             ),
                           ],
                         ),
@@ -121,15 +121,14 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Total Outstanding Owed',
-                              style: TextStyle(
-                                fontSize: 14,
+                            Text(
+                              L10n.instance.t('total_outstanding_owed'),
+                              style: const TextStyle(fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             Text(
-                              'Br${_totalOwed.toStringAsFixed(0)}',
+                              L10n.instance.formatCurrency(_totalOwed),
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -150,12 +149,12 @@ class _DebtsScreenState extends State<DebtsScreen> {
                                         Icon(Icons.people_outline, size: 50, color: Colors.grey[300]),
                                         const SizedBox(height: 12),
                                         Text(
-                                          'No debts recorded',
+                                          L10n.instance.t('no_debts_recorded'),
                                           style: TextStyle(fontSize: 16, color: Colors.grey[500]),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'Tap + to add someone who owes you',
+                                          L10n.instance.t('tap_plus_to_add_debt'),
                                           style: TextStyle(fontSize: 13, color: Colors.grey[400]),
                                         ),
                                       ],
@@ -180,7 +179,6 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   Widget _buildDebtTile(Debt debt) {
     final isPaid = debt.status == 'paid';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -222,7 +220,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
                   ),
                 ),
                 Text(
-                  isPaid ? 'Paid' : _formatDueDate(debt.createdAt),
+                  isPaid
+                      ? L10n.instance.t('status_paid')
+                      : L10n.instance.formatDueDateLabel(debt.createdAt),
                   style: TextStyle(
                     fontSize: 12,
                     color: isPaid ? const Color(0xFF0A8E48) : Colors.grey[500],
@@ -235,7 +235,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'Br${debt.amount.toStringAsFixed(0)}',
+                L10n.instance.formatCurrency(debt.amount),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -254,9 +254,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
                           color: const Color(0xFF0A8E48).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          'Mark Paid',
-                          style: TextStyle(
+                        child: Text(
+                          L10n.instance.t('btn_mark_paid'),
+                          style: const TextStyle(
                             fontSize: 10,
                             color: Color(0xFF0A8E48),
                             fontWeight: FontWeight.w600,
@@ -273,9 +273,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         color: const Color(0xFFE53935).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'Delete',
-                        style: TextStyle(
+                      child: Text(
+                        L10n.instance.t('btn_delete'),
+                        style: const TextStyle(
                           fontSize: 10,
                           color: Color(0xFFE53935),
                           fontWeight: FontWeight.w600,
@@ -291,15 +291,6 @@ class _DebtsScreenState extends State<DebtsScreen> {
       ),
     );
   }
-
-  String _formatDueDate(DateTime createdAt) {
-    final now = DateTime.now();
-    final difference = now.difference(createdAt).inDays;
-    if (difference == 0) return 'Added today';
-    if (difference == 1) return 'Added yesterday';
-    return 'Added $difference days ago';
-  }
-
   Future<void> _markAsPaid(Debt debt) async {
     try {
       final updated = Debt(
@@ -314,7 +305,11 @@ class _DebtsScreenState extends State<DebtsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(
+              L10n.instance.t('msg_error_generic', {'error': e}),
+            ),
+          ),
         );
       }
     }
@@ -324,13 +319,24 @@ class _DebtsScreenState extends State<DebtsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Debt?'),
-        content: Text('Remove ${debt.customerName}\'s debt of Br${debt.amount.toStringAsFixed(0)}?'),
+        title: Text(L10n.instance.t('dialog_delete_debt_title')),
+        content: Text(
+          L10n.instance.t('dialog_delete_debt_msg', {
+            'name': debt.customerName,
+            'amount': L10n.instance.formatCurrency(debt.amount),
+          }),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(L10n.instance.t('btn_cancel')),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              L10n.instance.t('btn_delete'),
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -343,7 +349,11 @@ class _DebtsScreenState extends State<DebtsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(
+              content: Text(
+                L10n.instance.t('msg_error_generic', {'error': e}),
+              ),
+            ),
           );
         }
       }
@@ -374,24 +384,27 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Add Debt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                L10n.instance.t('add_debt_sheet_title'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 20),
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  hintText: "Person's name",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                decoration: InputDecoration(
+                  hintText: L10n.instance.t('hint_person_name'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.person),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: amountController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: 'Amount (Br)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.money),
+                decoration: InputDecoration(
+                  hintText: L10n.instance.t('hint_debt_amount'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.money),
                 ),
               ),
               const SizedBox(height: 20),
@@ -402,10 +415,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
                   onPressed: () async {
                     final name = nameController.text.trim();
                     final amount = double.tryParse(amountController.text.trim());
-
                     if (name.isEmpty || amount == null || amount <= 0) {
                       ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(content: Text('Please fill in all fields')),
+                        SnackBar(content: Text(L10n.instance.t('val_fill_all_fields'))),
                       );
                       return;
                     }
@@ -424,7 +436,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Save'),
+                  child: Text(L10n.instance.t('btn_save')),
                 ),
               ),
             ],

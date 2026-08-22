@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
+
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -16,22 +18,22 @@ class BottomNavBar extends StatelessWidget {
       currentIndex: currentIndex,
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
-      items: const [
+      items: [
         BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
+          icon: const Icon(Icons.home),
+          label: L10n.instance.t('nav_home'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle),
-          label: 'Add',
+          icon: const Icon(Icons.add_circle),
+          label: L10n.instance.t('nav_add'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.people),
-          label: 'Debts',
+          icon: const Icon(Icons.people),
+          label: L10n.instance.t('nav_debts'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.settings),
-          label: 'Settings',
+          icon: const Icon(Icons.settings),
+          label: L10n.instance.t('nav_settings'),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../models/transaction.dart';
 import '../repositories/repository_provider.dart';
 import '../services/sms/sms_listener.dart';
@@ -79,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('My Money Record'),
+        title: Text(L10n.instance.t('home_title')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -107,16 +108,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             const Icon(Icons.error_outline, size: 50, color: Colors.red),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Could not load data',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            Text(
+                              L10n.instance.t('could_not_load_data'),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
                             Text(_error!, textAlign: TextAlign.center),
                             const SizedBox(height: 20),
                             ElevatedButton(
                               onPressed: _loadData,
-                              child: const Text('Retry'),
+                              child: Text(L10n.instance.t('btn_retry')),
                             ),
                           ],
                         ),
@@ -129,30 +130,29 @@ class _HomeScreenState extends State<HomeScreen> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildProfitCard(),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         _buildSummaryCard(
-                          'INCOME',
-                          'Br${_totalIncome.toStringAsFixed(0)}',
+                          L10n.instance.t('summary_income'),
+                          L10n.instance.formatCurrency(_totalIncome),
                           const Color(0xFF0A8E48),
                           Icons.arrow_upward,
                         ),
                         const SizedBox(width: 10),
                         _buildSummaryCard(
-                          'EXPENSES',
-                          'Br${_totalExpenses.toStringAsFixed(0)}',
+                          L10n.instance.t('summary_expenses'),
+                          L10n.instance.formatCurrency(_totalExpenses),
                           const Color(0xFFE53935),
                           Icons.arrow_downward,
                         ),
                         const SizedBox(width: 10),
                         _buildSummaryCard(
-                          'OWED',
-                          'Br${_totalOwed.toStringAsFixed(0)}',
+                          L10n.instance.t('summary_owed'),
+                          L10n.instance.formatCurrency(_totalOwed),
                           const Color(0xFFFF8F00),
                           Icons.people,
                         ),
@@ -162,9 +162,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Recent Transactions',
-                          style: TextStyle(
+                        Text(
+                          L10n.instance.t('recent_transactions'),
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -189,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'No transactions yet',
+                                L10n.instance.t('no_transactions_yet'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey[500],
@@ -197,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Bank SMS will appear here automatically',
+                                L10n.instance.t('sms_appear_automatically'),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey[400],
@@ -210,25 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     else
                       ..._recentTransactions.take(10).map((tx) {
                         final isIncome = tx.direction == 'income';
-                        final date = tx.timestamp;
-                        final now = DateTime.now();
-                        String dateLabel;
-                        if (date.year == now.year &&
-                            date.month == now.month &&
-                            date.day == now.day) {
-                          dateLabel =
-                              'Today, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-                        } else if (date.year == now.year &&
-                            date.month == now.month &&
-                            date.day == now.day - 1) {
-                          dateLabel = 'Yesterday';
-                        } else {
-                          dateLabel =
-                              '${date.day}/${date.month}/${date.year}';
-                        }
+                        final dateLabel = L10n.instance.formatDateLabel(tx.timestamp);
 
                         return _buildTransactionTile(
-                          tx.source.toUpperCase(),
+                          L10n.instance.translateSource(tx.source),
                           dateLabel,
                           tx.amount,
                           isIncome,
@@ -239,14 +224,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
     );
-  }
-
-  Widget _buildProfitCard() {
+  }Widget _buildProfitCard() {
     final profit = _totalIncome - _totalExpenses;
     final isProfit = profit >= 0;
     final profitColor = isProfit ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
     final profitIcon = isProfit ? Icons.trending_up : Icons.trending_down;
-    final profitLabel = isProfit ? 'Today\'s Profit' : 'Today\'s Loss';
+    final profitLabel = isProfit
+        ? L10n.instance.t('todays_profit')
+        : L10n.instance.t('todays_loss');
 
     final total = _totalIncome + _totalExpenses;
     final incomePercent = total > 0 ? _totalIncome / total : 0.0;
@@ -297,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Br${profit.abs().toStringAsFixed(0)}',
+            L10n.instance.formatCurrency(profit.abs()),
             style: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -338,23 +323,29 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildProfitDetail('Income', _totalIncome, Icons.arrow_upward),
+              _buildProfitDetail(
+                L10n.instance.t('label_income'),
+                _totalIncome,
+                Icons.arrow_upward,
+              ),
               const SizedBox(width: 24),
-              _buildProfitDetail('Expenses', _totalExpenses, Icons.arrow_downward),
+              _buildProfitDetail(
+                L10n.instance.t('label_expenses'),
+                _totalExpenses,
+                Icons.arrow_downward,
+              ),
             ],
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildProfitDetail(String label, double amount, IconData icon) {
+  }Widget _buildProfitDetail(String label, double amount, IconData icon) {
     return Row(
       children: [
         Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.8)),
         const SizedBox(width: 4),
         Text(
-          '$label: Br${amount.toStringAsFixed(0)}',
+          '$label: ${L10n.instance.formatCurrency(amount)}',
           style: TextStyle(
             fontSize: 13,
             color: Colors.white.withValues(alpha: 0.9),
@@ -426,9 +417,9 @@ class _HomeScreenState extends State<HomeScreen> {
         isIncome ? const Color(0xFF0A8E48) : const Color(0xFFE53935);
     final icon =
         isIncome ? Icons.arrow_upward : Icons.arrow_downward;
-    final label = isIncome ? 'Income' : 'Expense';
-
-    return Container(
+    final label = isIncome
+        ? L10n.instance.t('label_income')
+        : L10n.instance.t('label_expense');return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -475,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isIncome ? '+' : '-'}Br${amount.toStringAsFixed(0)}',
+                '${isIncome ? '+' : '-'}${L10n.instance.formatCurrency(amount)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: color,

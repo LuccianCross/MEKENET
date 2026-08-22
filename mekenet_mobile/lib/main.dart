@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'database/database_helper.dart';
+import 'l10n/l10n.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/quick_add_screen.dart';
@@ -15,6 +17,7 @@ import 'widgets/bottom_nav_bar.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await L10n.instance.init();
   await DatabaseHelper.instance.database;
 
   await SyncService.instance.initialize();
@@ -27,24 +30,40 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Mekenet',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF0A8E48),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0A8E48),
-          primary: const Color(0xFF0A8E48),
-          secondary: const Color(0xFFE8F5E9),
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0A8E48),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-      ),
-      home: const StartupScreen(),
-      debugShowCheckedModeBanner: false,
+    return ListenableBuilder(
+      listenable: L10n.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          key: ValueKey(L10n.instance.currentLanguageCode),
+          title: L10n.instance.t('app_title'),
+          locale: L10n.instance.currentLocale,
+          supportedLocales: const [
+            Locale('en'),
+            Locale('am'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: ThemeData(
+            primaryColor: const Color(0xFF0A8E48),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF0A8E48),
+              primary: const Color(0xFF0A8E48),
+              secondary: const Color(0xFFE8F5E9),
+            ),
+            useMaterial3: true,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF0A8E48),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+          ),
+          home: const StartupScreen(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }

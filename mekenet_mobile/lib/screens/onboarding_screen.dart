@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import 'pin_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -13,26 +14,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<_OnboardingPage> _pages = [
-    _OnboardingPage(
-      title: 'My Money Record',
-      subtitle: 'Your daily money record, automatically',
-      icon: Icons.account_balance_wallet,
-    ),
-    _OnboardingPage(
-      title: 'Allow access to SMS?',
-      subtitle:
-          'We read only bank payment messages to automatically log your sales and business expenses. We ignore personal chats.',
-      icon: Icons.sms,
-      isPermission: true,
-    ),
-    _OnboardingPage(
-      title: 'Your data stays on your device',
-      subtitle:
-          'Your financial records are 100% private. All SMS processing happens securely on your phone without sending details to any server.',
-      icon: Icons.shield,
-    ),
-  ];
+  List<_OnboardingPageData> _getPages() => [
+        _OnboardingPageData(
+          titleKey: 'onboarding_title_1',
+          subtitleKey: 'onboarding_subtitle_1',
+          icon: Icons.account_balance_wallet,
+        ),
+        _OnboardingPageData(
+          titleKey: 'onboarding_title_2',
+          subtitleKey: 'onboarding_subtitle_2',
+          icon: Icons.sms,
+          isPermission: true,
+        ),
+        _OnboardingPageData(
+          titleKey: 'onboarding_title_3',
+          subtitleKey: 'onboarding_subtitle_3',
+          icon: Icons.shield,
+        ),
+      ];
 
   @override
   void dispose() {
@@ -42,6 +41,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pages = _getPages();
+
     return Scaffold(
       backgroundColor: const Color(0xFF0A8E48),
       body: SafeArea(
@@ -49,13 +50,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: [
             Expanded(
               child: PageView.builder(
+                key: ValueKey(L10n.instance.currentLanguageCode),
                 controller: _pageController,
-                itemCount: _pages.length,
+                itemCount: pages.length,
                 onPageChanged: (index) {
                   setState(() => _currentPage = index);
                 },
                 itemBuilder: (context, index) {
-                  return _buildPage(_pages[index]);
+                  return _buildPage(pages[index]);
                 },
               ),
             ),
@@ -65,7 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
-                    children: List.generate(_pages.length, (index) {
+                    children: List.generate(pages.length, (index) {
                       return Container(
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         width: _currentPage == index ? 24 : 8,
@@ -79,7 +81,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       );
                     }),
                   ),
-                  if (_currentPage == _pages.length - 1)
+                  if (_currentPage == pages.length - 1)
                     ElevatedButton(
                       onPressed: _goToPin,
                       style: ElevatedButton.styleFrom(
@@ -94,9 +96,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Get Started',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      child: Text(
+                        L10n.instance.t('btn_get_started'),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     )
                   else
@@ -105,16 +107,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         TextButton(
                           onPressed: () {
                             _pageController.animateToPage(
-                              _pages.length - 1,
+                              pages.length - 1,
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOut,
                             );
                           },
                           style: TextButton.styleFrom(
-                            foregroundColor:
-                                Colors.white.withValues(alpha: 0.7),
+                            foregroundColor:Colors.white.withValues(alpha: 0.7),
                           ),
-                          child: const Text('Skip'),
+                          child: Text(L10n.instance.t('btn_skip')),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -136,7 +137,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text('Next'),
+                          child: Text(L10n.instance.t('btn_next')),
                         ),
                       ],
                     ),
@@ -156,7 +157,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildPage(_OnboardingPage page) {
+  Widget _buildPage(_OnboardingPageData page) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -172,7 +173,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            page.title,
+            L10n.instance.t(page.titleKey),
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -182,7 +183,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            page.subtitle,
+            L10n.instance.t(page.subtitleKey),
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withValues(alpha: 0.85),
@@ -198,9 +199,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'We\'ll never share your data',
-                style: TextStyle(
+              child: Text(
+                L10n.instance.t('onboarding_never_share'),
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -214,15 +215,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class _OnboardingPage {
-  final String title;
-  final String subtitle;
+class _OnboardingPageData {
+  final String titleKey;
+  final String subtitleKey;
   final IconData icon;
   final bool isPermission;
 
-  const _OnboardingPage({
-    required this.title,
-    required this.subtitle,
+  const _OnboardingPageData({
+    required this.titleKey,
+    required this.subtitleKey,
     required this.icon,
     this.isPermission = false,
   });

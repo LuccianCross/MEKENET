@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../l10n/l10n.dart';
 import '../models/transaction.dart';
 import '../repositories/sqlite_transaction_repository.dart';
 import '../services/sync_service.dart';
@@ -35,7 +36,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Add Expense'),
+        title: Text(L10n.instance.t('add_expense_title')),
         backgroundColor: const Color(0xFF0A8E48),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -45,9 +46,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Amount (Br)',
-              style: TextStyle(
+            Text(
+              L10n.instance.t('form_label_amount'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -56,17 +57,17 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                hintText: 'Enter expense amount',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.money),
+              decoration: InputDecoration(
+                hintText: L10n.instance.t('form_hint_amount'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.money),
               ),
             ),
             const SizedBox(height: 20),
 
-            const Text(
-              'Category',
-              style: TextStyle(
+            Text(
+              L10n.instance.t('form_label_category'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -77,7 +78,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
               children: _categories.map((category) {
                 final isSelected = _selectedCategory == category;
                 return ChoiceChip(
-                  label: Text(category),
+                  label: Text(L10n.instance.translateCategory(category)),
                   selected: isSelected,
                   onSelected: (selected) {
                     setState(() {
@@ -91,11 +92,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 20),
-
-            const Text(
-              'Date',
-              style: TextStyle(
+            const SizedBox(height: 20),Text(
+              L10n.instance.t('form_label_date'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -127,9 +126,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             ),
             const SizedBox(height: 20),
 
-            const Text(
-              'Note (Optional)',
-              style: TextStyle(
+            Text(
+              L10n.instance.t('form_label_note'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -137,9 +136,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Weekly stock refill',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: L10n.instance.t('form_hint_note'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -165,9 +164,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Save Expense',
-                        style: TextStyle(fontSize: 16),
+                    : Text(
+                        L10n.instance.t('btn_save_expense'),
+                        style: const TextStyle(fontSize: 16),
                       ),
               ),
             ),
@@ -185,7 +184,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an amount')),
+        SnackBar(content: Text(L10n.instance.t('val_enter_amount'))),
       );
       return;
     }
@@ -193,7 +192,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
+        SnackBar(content: Text(L10n.instance.t('val_enter_valid_amount'))),
       );
       return;
     }
@@ -217,15 +216,14 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
 
       // 1. Save locally first — always works even offline
       await _repo.save(tx);
-
       // 2. Attempt backend sync (silently fails if offline)
       await SyncService.instance.syncOne(tx);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Expense saved ✓'),
-            backgroundColor: Color(0xFF0A8E48),
+          SnackBar(
+            content: Text(L10n.instance.t('msg_expense_saved')),
+            backgroundColor: const Color(0xFF0A8E48),
           ),
         );
         _amountController.clear();
@@ -235,11 +233,15 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving expense: $e')),
+          SnackBar(
+            content: Text(
+              L10n.instance.t('msg_error_saving_expense', {'error': e}),
+            ),
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
-}
+}

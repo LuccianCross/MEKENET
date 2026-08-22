@@ -53,7 +53,7 @@ class MekenetApiClient {
 
   /// Send [tx] to the backend.
   ///
-  /// Returns a [SyncResponse] on success, or `null` if the device is offline
+  /// Returns a [SyncResponse] on success, or null if the device is offline
   /// or the server returned an error.
   static Future<SyncResponse?> syncTransaction(Transaction tx) async {
     final uri = Uri.parse('$baseUrl/sync/');
@@ -97,11 +97,10 @@ class MekenetApiClient {
   // -------------------------------------------------------------------------
   // GET /export/
   // -------------------------------------------------------------------------
-
   /// Fetch a financial report from the backend.
   ///
   /// All parameters are optional — omit to get all transactions.
-  /// Returns an [ExportReport] on success, or `null` on failure.
+  /// Returns an [ExportReport] on success, or null on failure.
   static Future<ExportReport?> exportReport({
     String? fromDate,   // YYYY-MM-DD
     String? toDate,     // YYYY-MM-DD
