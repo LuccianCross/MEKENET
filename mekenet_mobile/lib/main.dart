@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geez_fonts/geez_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database/database_helper.dart';
@@ -66,20 +67,25 @@ class MyMekenetState extends State<MyMekenet> {
       navigatorKey: navigatorKey,
       title: 'Mekenet',
       locale: _locale,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF0A8E48),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0A8E48),
-          primary: const Color(0xFF0A8E48),
-          secondary: const Color(0xFFE8F5E9),
+        theme: ThemeData(
+          primaryColor: const Color(0xFF0A8E48),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF0A8E48),
+            primary: const Color(0xFF0A8E48),
+            secondary: const Color(0xFFE8F5E9),
+          ),
+          useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF0A8E48),
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          textTheme: _locale.languageCode == 'am'
+              ? GeezFonts.benaiahTextTheme(
+                  ThemeData(useMaterial3: true).textTheme,
+                )
+              : null,
         ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0A8E48),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-      ),
       home: const StartupScreen(),
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [

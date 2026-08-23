@@ -269,6 +269,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  geez_fonts:
+    dependency: "direct main"
+    description:
+      name: geez_fonts
+      sha256: "0ea294222f0b518508a7e558eaa8f265374989f0524fed10985c1cb4381fc1e2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   glob:
     dependency: transitive
     description:

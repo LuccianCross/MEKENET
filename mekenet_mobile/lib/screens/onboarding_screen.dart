@@ -149,6 +149,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
       child: Row(
         children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset(
+              'assets/images/logo.jpg',
+              width: 28,
+              height: 28,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 10),
           const Expanded(
             child: Text(
               'MEKENET',
