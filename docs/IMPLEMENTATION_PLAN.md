@@ -7,6 +7,8 @@
 - **Migration (database):** a saved record of changes to how data is organized, so the app can update its storage structure safely later without losing data.
 - **Encryption:** scrambling the data so it can't be read without a secret key — protects the shop owner's real numbers if the phone is lost or the file is somehow accessed.
 - **Unit test / widget test / integration test:** small automatic checks that confirm a piece of code works correctly, run by the computer instead of a person clicking through the app by hand every time.
+- **API / endpoint:** a specific "address" the app can send a request to on the backend, like `/sync` or `/export`, to get something done or get data back.
+- **Virtual environment (Python):** an isolated space for a Python project's installed packages, so different projects on the same computer don't interfere with each other.
 This document breaks the MVP into phases by layer — database, backend, frontend — so it's easy to follow regardless of which part you're working on. Note: layers are documented in this order for clarity, but per the README's 8-day build order, database and parser work actually start in parallel on day 1, not strictly one after another. Check the README for the day-by-day calendar; check this document for the actual steps within each layer.
  
 ---
@@ -17,23 +19,24 @@ This document breaks the MVP into phases by layer — database, backend, fronten
 2. **Define repository interfaces before writing the real implementation.** e.g. `TransactionRepository` with methods like `save()`, `getByDateRange()`. Publish these on day 1 so the frontend dev can build against a mock version immediately, instead of waiting on the real SQLite layer.
 3. **Verify `sqflite_sqlcipher` actually works in your setup, day 1, before committing to it.** If it's flaky, fall back to application-level field encryption rather than losing a day mid-week to a dependency problem.
 4. **Set up local storage.** Add `sqflite` and `sqflite_sqlcipher` to the Flutter project. Create the database file with encryption enabled from the start, with the encryption key stored via `flutter_secure_storage` — never hardcoded.
-3. **Write migrations.** Even for an 8-day MVP, use a versioned migration (not a single hardcoded `CREATE TABLE`), since the schema will change at least once as the team finds edge cases.
-4. **Write CRUD functions.** One simple function per operation you actually need (insert transaction, get transactions by date range, update a `PriceMatchRule`'s confidence, etc.) — not a generic ORM-style abstraction layer. Simple and direct beats "flexible" here.
-5. **Unit test this layer first.** Before anyone else builds on top of it: insert a transaction, read it back, confirm encryption is actually active (the raw `.db` file should be unreadable without the key). This is the foundation everyone else depends on — bugs here cost the whole team time later.
+5. **Write migrations.** Even for an 8-day MVP, use a versioned migration (not a single hardcoded `CREATE TABLE`), since the schema will change at least once as the team finds edge cases.
+6. **Write CRUD functions.** One simple function per operation you actually need (insert transaction, get transactions by date range, update a `PriceMatchRule`'s confidence, etc.) — not a generic ORM-style abstraction layer. Simple and direct beats "flexible" here.
+7. **Unit test this layer first.** Before anyone else builds on top of it: insert a transaction, read it back, confirm encryption is actually active (the raw `.db` file should be unreadable without the key). This is the foundation everyone else depends on — bugs here cost the whole team time later.
 **Done when:** another teammate can call your CRUD functions and get correct data back, without needing to understand how the database works internally.
  
 ---
  
-## Phase 2: Backend (You, staged for days 7–8)
+## Phase 2: Backend (lead + backend teammate, staged for days 6–8)
  
-1. **Set up the Supabase project.** Create tables that mirror the structured (non-raw) transaction fields from the local schema.
-2. **Keep auth minimal.** For a pilot, a simple per-device identifier is enough — don't build a full user account system for an 8-day MVP.
-3. **Keep sync dead simple.** The pilot is one phone per shop owner, syncing on explicit request — you don't have a multi-device conflict problem yet, so don't build for one. Dedup using the transaction's own id and `raw_sms_hash`, which you already have. MVP is append-only: edits stay local, deletes are a soft flag, nothing more elaborate than that.
-4. **Write a one-page privacy spec.** State plainly: parsing happens on-device, raw SMS never leaves the phone, only structured fields sync, and only when the user taps export. This becomes both an internal reference and demo material.
-5. **Build the sync function**, pushing local transactions up as structured data only.
-6. **Build the export function.** Turns synced data into a simple, readable report (PDF or shareable text) — this is the one feature real users (loan officers) will actually look at, so it's worth an extra pass on formatting.
-7. **Test manually with sample data.** Given the scope, a couple of manual runs plus one or two integration tests covering "does a sync actually write correctly" is enough — don't over-invest in backend test infrastructure for a feature this small.
-**Done when:** a teammate can trigger sync from the app and get a real, readable export out the other end, and can point to the privacy spec to show exactly what did and didn't leave the device.
+1. **Set up the Python project.** A virtual environment, `fastapi`, `uvicorn` (runs the server), and a Postgres driver — see `PROJECT_SETUP.md` for exact commands. Get the default `/health` endpoint running and visible at `/docs` before building anything real — that's your proof the setup works.
+2. **Set up Postgres and create the transactions table**, mirroring the structured (non-raw) fields from the local schema in `SDD.md`. Keep the connection string in a `.env` file, never committed to the repo.
+3. **Keep auth minimal.** For a pilot, a simple per-device identifier is enough — don't build a full user account system for an 8-day MVP.
+4. **Keep sync dead simple.** The pilot is one phone per shop owner, syncing on explicit request — you don't have a multi-device conflict problem yet, so don't build for one. Dedup using the transaction's own id and `raw_sms_hash`, which you already have. MVP is append-only: edits stay local, deletes are a soft flag, nothing more elaborate than that.
+5. **Write a one-page privacy spec.** State plainly: parsing happens on-device, raw SMS never leaves the phone, only structured fields sync, and only when the user taps export. This becomes both an internal reference and demo material.
+6. **Build the `/sync` endpoint**, accepting structured transaction data only, writing it to Postgres.
+7. **Build the `/export` endpoint.** Turns synced data into a simple, readable report (PDF or shareable text) — this is the one feature real users (loan officers) will actually look at, so it's worth an extra pass on formatting.
+8. **Test using FastAPI's `/docs` page directly** — you can send real requests to your own endpoints from the browser without writing a separate testing tool. Given the scope, that plus one or two automated tests covering "does a sync actually write correctly" is enough — don't over-invest in test infrastructure for a backend this small.
+**Done when:** a teammate can trigger sync from the app, see the data land correctly in Postgres, and get a real, readable export back from `/export` — and you can point to the privacy spec to show exactly what did and didn't leave the device.
  
 ---
  

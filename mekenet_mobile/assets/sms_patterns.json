@@ -1,0 +1,25 @@
+{
+  "banks": [
+    {
+      "name": "Telebirr",
+      "senders": ["8047", "127"],
+      "keywords": ["Telebirr"],
+      "direction_out": "transferred",
+      "direction_in": "received"
+    },
+    {
+      "name": "CBE",
+      "senders": ["973"],
+      "keywords": ["CBE", "Commercial Bank"],
+      "direction_out": "debited",
+      "direction_in": "credited"
+    },
+    {
+      "name": "Awash",
+      "senders": ["8047"],
+      "keywords": ["Awash"],
+      "direction_out": "sent",
+      "direction_in": "received"
+    }
+  ]
+}
