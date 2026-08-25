@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MapEntry<String, double>> _incomeByCategory = [];
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _importingHistory = false;
   String? _error;
   StreamSubscription<void>? _smsSub;
   int _selectedPeriod = 0; // 0=Today, 1=Week, 2=Month
@@ -41,11 +42,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _smsSub = SmsListener.instance.onTransactionAdded.listen((_) {
       if (mounted) _refreshSilently();
     });
+    SmsListener.inboxImportState.addListener(_onImportStateChanged);
+    // Pick up an import that may already be running.
+    _onImportStateChanged();
+  }
+
+  void _onImportStateChanged() {
+    if (!mounted) return;
+    final state = SmsListener.inboxImportState.value;
+    setState(() => _importingHistory = state == InboxImportState.running);
+    if (state == InboxImportState.done && !_isRefreshing) {
+      _refreshSilently();
+    }
   }
 
   @override
   void dispose() {
     _smsSub?.cancel();
+    SmsListener.inboxImportState.removeListener(_onImportStateChanged);
     super.dispose();
   }
 
@@ -176,7 +190,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _importingHistory
+              ? const _SkeletonHome()
+              : _error != null
               ? ListView(
                   children: [
                     const SizedBox(height: 120),
@@ -923,6 +939,104 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Pulsing placeholder UI shown while the SMS inbox history is importing.
+class _SkeletonHome extends StatefulWidget {
+  const _SkeletonHome();
+
+  @override
+  State<_SkeletonHome> createState() => _SkeletonHomeState();
+}
+
+class _SkeletonHomeState extends State<_SkeletonHome>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final opacity = 0.45 + 0.4 * _controller.value;
+        return Opacity(
+          opacity: opacity,
+          child: child,
+        );
+      },
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            height: 140,
+            decoration: _bone(radius: 20),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: Container(height: 36, decoration: _bone())),
+              const SizedBox(width: 10),
+              Expanded(child: Container(height: 36, decoration: _bone())),
+              const SizedBox(width: 10),
+              Expanded(child: Container(height: 36, decoration: _bone())),
+            ],
+          ),
+          const SizedBox(height: 24),
+          for (var i = 0; i < 6; i++) ...[
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: _bone(shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 14,
+                        width: double.infinity,
+                        decoration: _bone(),
+                      ),
+                      const SizedBox(height: 8),
+                      FractionallySizedBox(
+                        widthFactor: 0.55,
+                        alignment: Alignment.centerLeft,
+                        child: Container(height: 11, decoration: _bone()),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(width: 70, height: 14, decoration: _bone()),
+              ],
+            ),
+            const SizedBox(height: 18),
+          ],
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _bone({double radius = 8, BoxShape? shape}) {
+    return BoxDecoration(
+      shape: shape ?? BoxShape.rectangle,
+      borderRadius: shape == null ? BorderRadius.circular(radius) : null,
+      color: Colors.grey.shade300,
     );
   }
 }

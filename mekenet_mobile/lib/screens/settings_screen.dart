@@ -23,6 +23,7 @@ import '../api_client/mekenet_api_client.dart';
 import '../models/export_report.dart';
 import '../services/category_service.dart';
 import '../services/sync_service.dart';
+import '../services/sms/sms_listener.dart';
 import '../services/parser/bank_identifier.dart';
 import '../services/parser/telebirr_sms_parser.dart';
 import '../services/parser/cbe_sms_parser.dart';
@@ -43,13 +44,44 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _syncEnabled = false;
   bool _loadingSync = true;
+  bool _smsHistoryEnabled = false;
   String _currentLang = 'en';
 
   @override
   void initState() {
     super.initState();
     _loadSyncPreference();
+    _loadSmsHistoryPreference();
     _loadLanguage();
+  }
+
+  Future<void> _loadSmsHistoryPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _smsHistoryEnabled = prefs.getBool(SmsListener.inboxImportPrefKey) ?? false;
+    });
+  }
+
+  String _smsHistorySubtitle(InboxImportState state) {
+    if (!_smsHistoryEnabled) {
+      return 'Off — new SMS are still tracked';
+    }
+    switch (state) {
+      case InboxImportState.running:
+        return 'Reading your SMS history…';
+      case InboxImportState.done:
+        return 'Done — ${SmsListener.importedCount.value} transactions imported';
+      case InboxImportState.failed:
+        return 'Import failed — turn off and on to retry';
+      default:
+        return 'On';
+    }
+  }
+
+  Future<void> _toggleSmsHistory(bool value) async {
+    setState(() => _smsHistoryEnabled = value);
+    await SmsListener.instance.setInboxConsent(value);
   }
 
   Future<void> _loadLanguage() async {
@@ -215,6 +247,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text('Offline Mode'),
                     subtitle: Text('Works without internet'),
                     trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                  ),
+                  const Divider(height: 1),
+
+                  // ── SMS history import toggle ────────────────────────
+                  ListTile(
+                    leading: const Icon(Icons.history_edu,
+                        color: Color(0xFF0A8E48)),
+                    title: const Text('SMS History Import'),
+                    subtitle: ValueListenableBuilder<InboxImportState>(
+                      valueListenable: SmsListener.inboxImportState,
+                      builder: (context, state, _) => Text(
+                        _smsHistorySubtitle(state),
+                      ),
+                    ),
+                    trailing: _smsHistoryEnabled
+                        ? ValueListenableBuilder<InboxImportState>(
+                            valueListenable: SmsListener.inboxImportState,
+                            builder: (context, state, _) =>
+                                state == InboxImportState.running
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : Switch(
+                                        value: true,
+                                        onChanged: _toggleSmsHistory,
+                                        activeThumbColor:
+                                            const Color(0xFF0A8E48),
+                                      ),
+                          )
+                        : Switch(
+                            value: false,
+                            onChanged: _toggleSmsHistory,
+                            activeThumbColor: const Color(0xFF0A8E48),
+                          ),
                   ),
                   const Divider(height: 1),
 

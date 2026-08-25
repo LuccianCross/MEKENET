@@ -20,6 +20,9 @@ import '../parser/parsed_bank_sms.dart';
 import '../parser/telebirr_sms_parser.dart';
 import '../sync_service.dart';
 
+/// User's choice about reading the SMS inbox for past transactions.
+enum InboxImportState { notAsked, running, done, declined, failed }
+
 @pragma('vm:entry-point')
 void onBackgroundMessage(SmsMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -124,13 +127,23 @@ class SmsListener {
   SmsListener._();
   static final SmsListener instance = SmsListener._();
 
+  static const String inboxImportPrefKey = 'mekenet_sms_history_import';
+
   final Telephony _telephony = Telephony.instance;
   final Logger _logger = Logger();
   bool _initialized = false;
+  bool _importing = false;
 
   static final StreamController<void> transactionStream =
       StreamController<void>.broadcast();
   Stream<void> get onTransactionAdded => transactionStream.stream;
+
+  /// Observable state of the (optional) inbox history import.
+  static final ValueNotifier<InboxImportState> inboxImportState =
+      ValueNotifier<InboxImportState>(InboxImportState.notAsked);
+
+  /// Number of transactions created by the most recent import.
+  static final ValueNotifier<int> importedCount = ValueNotifier<int>(0);
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -162,66 +175,126 @@ class SmsListener {
       _initialized = true;
       _logger.i('SMS listener initialized (foreground + background)');
 
-      // Sync today's inbox to catch messages received while app was closed
-      _syncInbox();
+      // Live SMS tracking starts now regardless of the inbox choice.
+      // History import only happens if the user opted in.
+      await _restoreInboxConsent();
     } catch (e) {
       _logger.e('Error initializing SMS listener', error: e);
     }
   }
 
-  /// Read today's SMS inbox from known bank senders.
-  /// Only processes SMS received AFTER the last known processed SMS timestamp.
-  void _syncInbox() async {
+  /// Applies the stored inbox preference. When unset, the UI is expected
+  /// to ask the user once ([InboxImportState.notAsked]).
+  Future<void> _restoreInboxConsent() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final lastProcessedMs = prefs.getInt('sms_last_processed_ms') ?? 0;
-
-      final messages = await _telephony.getInboxSms(
-        columns: [
-          SmsColumn.ID,
-          SmsColumn.ADDRESS,
-          SmsColumn.BODY,
-          SmsColumn.DATE,
-        ],
-        filter: SmsFilter.where(SmsColumn.DATE).greaterThan(
-          lastProcessedMs.toString(),
-        ),
-        sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
-      );
-
-      int processed = 0;
-      int newestTimestamp = lastProcessedMs;
-
-      for (final sms in messages) {
-        final smsText = sms.body;
-        if (smsText == null || smsText.isEmpty) continue;
-
-        final bankName = await BankIdentifier.identify(sms.address, smsText);
-        if (bankName == null) continue;
-
-        final hash = sha256.convert(utf8.encode(smsText)).toString();
-        final exists =
-            await RepositoryProvider.transaction.existsBySmsHash(hash);
-        if (exists) continue;
-
-        await _handleSms(smsText, sms.address);
-        processed++;
-
-        // Track the newest SMS timestamp we've seen
-        if (sms.date != null && sms.date! > newestTimestamp) {
-          newestTimestamp = sms.date!;
-        }
+      final consent = prefs.getBool(inboxImportPrefKey);
+      if (consent == true) {
+        unawaited(importInboxHistory());
+      } else if (consent == false) {
+        inboxImportState.value = InboxImportState.declined;
+      } else {
+        inboxImportState.value = InboxImportState.notAsked;
       }
-
-      // Save the newest timestamp so next time we only check newer SMS
-      if (newestTimestamp > lastProcessedMs) {
-        await prefs.setInt('sms_last_processed_ms', newestTimestamp);
-      }
-
-      _logger.i('Inbox sync: $processed new bank messages processed');
     } catch (e) {
-      _logger.e('Error syncing inbox', error: e);
+      _logger.e('Error restoring inbox consent', error: e);
     }
+  }
+
+  /// Persists the user's decision and starts an import when allowed.
+  Future<void> setInboxConsent(bool allowed) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(inboxImportPrefKey, allowed);
+    if (allowed) {
+      await importInboxHistory();
+    } else {
+      inboxImportState.value = InboxImportState.declined;
+    }
+  }
+
+  /// Reads today's inbox once to rebuild past transactions.
+  Future<void> importInboxHistory() async {
+    if (_importing) return;
+    _importing = true;
+    inboxImportState.value = InboxImportState.running;
+    try {
+      final count = await _syncInbox();
+      importedCount.value = count;
+      inboxImportState.value = InboxImportState.done;
+      _logger.i('Inbox import finished: $count transactions');
+    } catch (e) {
+      _logger.e('Inbox import failed', error: e);
+      inboxImportState.value = InboxImportState.failed;
+    } finally {
+      _importing = false;
+    }
+  }
+
+  /// Read today's SMS inbox from known bank senders.
+  /// Only processes SMS received AFTER the last known processed SMS timestamp.
+  /// Returns the number of transactions created.
+  Future<int> _syncInbox() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastProcessedMs = prefs.getInt('sms_last_processed_ms') ?? 0;
+
+    // First-ever scan: cap the window to the last 30 days. Reading the
+    // entire inbox in one query floods the platform's main thread
+    // (encoding thousands of messages) and triggers an ANR.
+    final cutoffMs = lastProcessedMs > 0
+        ? lastProcessedMs
+        : DateTime.now()
+            .subtract(const Duration(days: 30))
+            .millisecondsSinceEpoch;
+
+    final messages = await _telephony.getInboxSms(
+      columns: [
+        SmsColumn.ID,
+        SmsColumn.ADDRESS,
+        SmsColumn.BODY,
+        SmsColumn.DATE,
+      ],
+      filter: SmsFilter.where(SmsColumn.DATE).greaterThan(
+        cutoffMs.toString(),
+      ),
+      sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
+    );
+
+    int processed = 0;
+    int newestTimestamp = lastProcessedMs;
+
+    for (final sms in messages) {
+      final smsText = sms.body;
+      if (smsText == null || smsText.isEmpty) continue;
+
+      final bankName = await BankIdentifier.identify(sms.address, smsText);
+      if (bankName == null) continue;
+
+      final hash = sha256.convert(utf8.encode(smsText)).toString();
+      final exists =
+          await RepositoryProvider.transaction.existsBySmsHash(hash);
+      if (exists) continue;
+
+      await _handleSms(smsText, sms.address);
+      processed++;
+
+      // Yield periodically so the UI keeps responding during bulk imports.
+      if (processed % 10 == 0) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Track the newest SMS timestamp we've seen
+      if (sms.date != null && sms.date! > newestTimestamp) {
+        newestTimestamp = sms.date!;
+      }
+    }
+
+    // Save the newest timestamp so next time we only check newer SMS
+    if (newestTimestamp > lastProcessedMs) {
+      await prefs.setInt('sms_last_processed_ms', newestTimestamp);
+    }
+
+    _logger.i('Inbox sync: $processed new bank messages processed');
+    return processed;
   }
 
   Future<void> _handleSms(String smsText, String? sender) async {
