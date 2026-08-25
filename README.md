@@ -18,7 +18,7 @@ Small business owners in Addis Ababa get paid via telebirr, CBE Birr, and cash, 
 - **CTC Number:** CTC-6064-26
 - **Full Name:** Lombame Lemma
 - **CTC Number:** CTC-888-26
-- **Full Name:** Helen Tesfaye
+- **Full Name:** Helen Tesfaye 
 - **CTC Number:** CTC-1586-26
 *(add your info here)*
  
