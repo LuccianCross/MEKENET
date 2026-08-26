@@ -1,0 +1,61 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+
+# Flutter / Dart (root-level scaffolding)
+.dart_tool/
+.build/
+.buildlog/
+.flutter-plugins-dependencies
+pubspec.lock
+migrate_working_dir/
+
+# Android build output (root-level scaffold remnants only)
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# iOS build artifacts
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.framework
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+
+# macOS build artifacts
+**/macos/Pods/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Flutter/ephemeral/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+.env
+!**/venv/.gitkeep
+
+# Coverage
+coverage/
+.coverage
+
+# Secrets (must never be committed)
+*.jks
+key.properties
+*.keystore
+
+# Docker
+docker-compose.override.yml

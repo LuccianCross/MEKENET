@@ -80,38 +80,65 @@ INSA_final_project/
 
 ### Prerequisites
 
-- Flutter SDK (stable channel)
-- An Android device or emulator (API 21+)
-- Python 3.12+ with `venv` (backend only)
+What you need before anything will work — install these first:
+
+| Tool | Purpose | Install from |
+|---|---|---|
+| **Flutter SDK** (stable channel) | Build the Android app | [flutter.dev](https://flutter.dev/docs/get-started/install) |
+| **Android Studio** or **VS Code + Flutter extension** | IDE + Android emulator | [developer.android.com](https://developer.android.com/studio) |
+| **Python 3.12+** | Backend server only | [python.org](https://www.python.org/downloads/) |
+| **Docker** (optional) | Run the backend without installing Python locally | [docker.com](https://docs.docker.com/get-docker/) |
+
+After installing Flutter, run `flutter doctor` in your terminal and fix anything it flags before continuing.
 
 ### Mobile app
 
 ```bash
 cd mekenet_mobile
 flutter pub get
-flutter run
+flutter run              # USB-connected device or running emulator required
+```
+
+For a faster, demo-ready build:
+
+```bash
+flutter run --release    # pre-compiled, no hot-reload — but no freezes on real devices
 ```
 
 The app runs fully offline. On first launch you'll set up a PIN and choose whether to import your SMS history.
 
 ### Backend
 
+**macOS / Linux:**
 ```bash
 cd server
-python3 -m venv venv && source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env            # then fill in DATABASE_URL and MEKENET_API_KEY
 uvicorn main:app --reload
 ```
 
+**Windows (PowerShell):**
+```powershell
+cd server
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env          # then fill in DATABASE_URL and MEKENET_API_KEY
+uvicorn main:app --reload
+```
+
 Interactive API docs are auto-generated at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-### Docker
+### Docker (alternative — no Python install needed)
 
 ```bash
 cd server
 docker compose up --build
 ```
+
+Requires Docker Desktop to be running first.
 
 ### Running tests
 
@@ -119,7 +146,7 @@ docker compose up --build
 # mobile (40 tests)
 cd mekenet_mobile && flutter test
 
-# backend (32 tests)
+# backend (32 tests — requires the venv from above to be active)
 cd server && python -m pytest -q
 ```
 
