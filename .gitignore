@@ -19,25 +19,10 @@
 pubspec.lock
 migrate_working_dir/
 
-# Android build output (root-level scaffold remnants only)
-/android/app/debug
-/android/app/profile
-/android/app/release
-
-# iOS build artifacts
-**/ios/Pods/
-**/ios/.symlinks/
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/app.framework
-**/ios/Flutter/flutter_export_environment.sh
-**/ios/ServiceDefinitions.json
-
-# macOS build artifacts
-**/macos/Pods/
-**/macos/Flutter/GeneratedPluginRegistrant.swift
-**/macos/Flutter/ephemeral/
+# Root-level scaffold remnants (NOT the real mekenet_mobile/ subdirectories)
+/android/
+/ios/
+/macos/
 
 # Python
 __pycache__/
