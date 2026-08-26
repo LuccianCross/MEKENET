@@ -148,7 +148,7 @@ cd server && python -m pytest -q
 | Lombame Lemma | CTC-888-26 | Core engine · SMS parser |
 | Helen Tesfaye | CTC-1586-26 | Frontend · mobile UI |
 | Mekdes Tesfaye | CTC-1711-26 | Storage & sync |
-| Kenawak Berhanu | CTC-6591-26 | Backend & export |
+| Kenawak Berhanu | CTC-6591-26 | Transaction Parsing & Matching |
 
 ## Contributing
 
