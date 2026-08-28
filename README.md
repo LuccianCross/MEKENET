@@ -8,7 +8,7 @@
 
 ## About
 
-**Mekenet** (Amharic for *"woven cloth"* — the fabric that holds things together) is an offline-first Android app that gives small business owners in Ethiopia a clear, daily picture of their money without manual bookkeeping.
+**Mekenet** (Amharic for *"woven cloth"* — the fabric our mothers use to hold their money together) is an offline-first Android app that gives small business owners in Ethiopia a clear, daily picture of their money with an automatic and manual bookkeeping.
 
 Small traders in Addis Ababa get paid through **telebirr, CBE Birr, Awash**, and cash — but they can't quickly see their real profit or who owes them. That leads to poor restocking decisions and trouble getting loans, since lenders want clean records. Mekenet solves this by reading bank SMS notifications on the phone and turning them into structured transactions automatically.
 
