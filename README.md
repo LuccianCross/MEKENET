@@ -171,7 +171,7 @@ cd server && python -m pytest -q
 
 | Name | CTC Number | Role |
 |---|---|---|
-| Lewi Kibru | CTC-6064-26 | Team lead ·system planning & design, review, full stack|
+| Lewi Kibru | CTC-6064-26 | Team lead ·system planning & design, Full-Stack|
 | Lombame Lemma | CTC-888-26 | Backend |
 | Helen Tesfaye | CTC-1586-26 | storage & sync|
 | Mekdes Tesfaye | CTC-1711-26 | frontend . mobile UI|
