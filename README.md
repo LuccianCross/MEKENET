@@ -171,11 +171,11 @@ cd server && python -m pytest -q
 
 | Name | CTC Number | Role |
 |---|---|---|
-| Lewi Kibru | CTC-6064-26 | Team lead · product, review, go-to-market |
-| Lombame Lemma | CTC-888-26 | Core engine · SMS parser |
-| Helen Tesfaye | CTC-1586-26 | Frontend · mobile UI |
-| Mekdes Tesfaye | CTC-1711-26 | Storage & sync |
-| Kenawak Berhanu | CTC-6591-26 | Backend & export |
+| Lewi Kibru | CTC-6064-26 | Team lead ·system planning & design, review, full stack|
+| Lombame Lemma | CTC-888-26 | Backend |
+| Helen Tesfaye | CTC-1586-26 | storage & sync|
+| Mekdes Tesfaye | CTC-1711-26 | frontend . mobile UI|
+| Kenawak Berhanu | CTC-6591-26 | SMS parser |
 
 ## Contributing
 
